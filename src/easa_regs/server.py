@@ -27,7 +27,7 @@ INSTRUCTIONS = f"""\
 Search and quote the EASA Easy Access Rules (EU aviation regulations): Aircrew (Part-FCL, MED, ARA/ORA, DTO), \
 Air Operations (ORO, CAT, NCO, NCC, SPO, SPA), SERA, Sailplanes (SFCL/SAO), Balloons (BFCL/BOP), \
 Continuing Airworthiness (Part-M/ML/145/CAMO), Initial Airworthiness (Part 21 incl. POA/DOA, Part 21 Light), \
-Information Security (Part-IS), the Basic Regulation, UAS (drones) and Aerodromes.
+Information Security (Part-IS), AMC-20, the Basic Regulation, UAS (drones) and Aerodromes.
 Queries work best in English (the rules are in English); common German terms and abbreviations are understood.
 
 How to answer regulatory questions with these tools:
@@ -45,12 +45,13 @@ mcp = FastMCP("easa-regs", instructions=INSTRUCTIONS)
 READ_ONLY = ToolAnnotations(readOnlyHint=True, idempotentHint=True, openWorldHint=False)
 
 BookCode = Literal["AIRCREW", "AIROPS", "SERA", "SAILPLANES", "BALLOONS", "CONTAIR", "BASIC", "UAS", "AERODROMES",
-                   "INITAIR", "INFOSEC"]
+                   "INITAIR", "INFOSEC", "AMC20"]
 BOOK_HELP = ("AIRCREW (Part-FCL/MED/CC/ARA/ORA/DTO), AIROPS (ORO/CAT/NCO/NCC/SPO/SPA/IAM), SERA (rules of the air), "
              "SAILPLANES (Part-SFCL/SAO), BALLOONS (Part-BFCL/BOP), CONTAIR (Part-M/ML/145/CAMO/CAO), "
              "BASIC (Basic Regulation 2018/1139), UAS (drones), AERODROMES, "
              "INITAIR (Part 21: certification, design and production organisations, Part 21 Light; Reg. 748/2012), "
-             "INFOSEC (Part-IS: information security, Regs 2023/203 and 2022/1645)")
+             "INFOSEC (Part-IS: information security, Regs 2023/203 and 2022/1645), "
+             "AMC20 (AMC-20 general AMC for airworthiness of products, parts and appliances, e.g. AMC 20-29)")
 ContentType = Literal["IR", "AMC", "GM", "CS"]
 
 

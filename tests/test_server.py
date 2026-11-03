@@ -112,13 +112,13 @@ def test_german_queries(query, expected, monkeypatch):
 def test_real_counts_part21_part_is():
     con = sqlite3.connect(REAL_DB)
     counts = dict(con.execute("SELECT book, COUNT(*) FROM rules GROUP BY book"))
-    assert counts.get("INITAIR", 0) > 300 and counts.get("INFOSEC", 0) > 50, counts
+    assert counts.get("INITAIR", 0) > 300 and counts.get("INFOSEC", 0) > 50 and counts.get("AMC20", 0) > 20, counts
 
 
 @real
 @pytest.mark.parametrize("ref,book", [
     ("21.A.9", "INITAIR"), ("21.A.133", "INITAIR"), ("21.A.139", "INITAIR"), ("21.A.239", "INITAIR"),
-    ("IS.D.OR.200", "INFOSEC"), ("IS.I.OR.200", "INFOSEC"),
+    ("IS.D.OR.200", "INFOSEC"), ("IS.I.OR.200", "INFOSEC"), ("AMC 20-29", "AMC20"),
 ])
 def test_part21_part_is_refs(ref, book, monkeypatch):
     monkeypatch.setenv("EASA_REGS_DB", str(REAL_DB))
@@ -149,6 +149,15 @@ def test_golden_search_part21_part_is(query, book, expected, monkeypatch):
 def test_part21_niche_hints(query, niche):
     from easa_regs import db
     assert bool(db.NICHE_HINTS.search(query)) is niche
+
+
+@pytest.mark.parametrize("query,token", [
+    ("what does CS 22.143 say", "CS 22.143"), ("AMC 20-29 composite", "AMC 20-29"),
+    ("AMC 20-115D", "AMC 20-115D"), ("21.A.139(d) POA", "21.A.139(d)"),
+])
+def test_ref_tokens_cs_and_amc20(query, token):
+    from easa_regs import db
+    assert token in [m.group(0) for m in db.REF_TOKEN.finditer(query)]
 
 
 def test_part21_expansions():

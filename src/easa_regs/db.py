@@ -81,7 +81,8 @@ CREATE VIRTUAL TABLE IF NOT EXISTS rules_fts USING fts5(
 
 TYPE_ORDER = "CASE content_type WHEN 'IR' THEN 0 WHEN 'AMC' THEN 1 WHEN 'GM' THEN 2 WHEN 'CS' THEN 3 ELSE 4 END"
 REF_TOKEN = re.compile(
-    r"\b(?:(?:AMC|GM|CS)\d*\s+)?(?:[A-Z]{2,}[A-Z0-9]*|\d{2,3}\.[A-Z]{1,2})(?:\.[A-Z0-9]+)+(?:\([a-z0-9]+\))*", re.I)
+    r"\b(?:(?:AMC|GM|CS)\d*\s+)?(?:[A-Z]{2,}[A-Z0-9]*|\d{2,3}\.[A-Z]{1,2})(?:\.[A-Z0-9]+)+(?:\([a-z0-9]+\))*"
+    r"|\b(?:AMC|GM|CS)\d*\s+\d{2}[-.]\d+[A-Z]?\b(?:\([a-z0-9]+\))*", re.I)
 
 
 def db_path() -> Path:
@@ -259,13 +260,14 @@ SPECIFIC_HINTS = re.compile(
     r"airline|operator|gewerblich)\b", re.I)
 
 
-NICHE_BOOKS = {"SAILPLANES", "BALLOONS", "UAS", "AERODROMES", "INITAIR", "INFOSEC"}
+NICHE_BOOKS = {"SAILPLANES", "BALLOONS", "UAS", "AERODROMES", "INITAIR", "INFOSEC", "AMC20"}
 NICHE_HINTS = re.compile(
     r"\b(sailplanes?|gliders?|glid\w*|segelf\w*|SFCL|SAO|TMG|balloons?|ballon\w*|BFCL|BOP|drones?|drohne\w*|UAS|"
     r"UAV|unmanned|aerodrome operator|ADR|flugplatzbetreiber|"
     r"Part[- ]?21|21\.[AB]\.\w+|POA|DOA|POE|DOH|production organi[sz]ations?|design organi[sz]ations?|"
     r"type[- ]certificat\w*|STC|certification basis|airworthiness directives?|Form 1|"
-    r"Part[- ]?IS|IS\.[A-Z]\.?\w*|ISMS|information security|cyber\w*)\b", re.I)
+    r"Part[- ]?IS|IS\.[A-Z]\.?\w*|ISMS|information security|cyber\w*|"
+    r"AMC[- ]?20(?:-\w+)?|CS[- ]\d{2}(?:\.\d+)?|certification specifications?)\b", re.I)
 
 
 def _rerank_score(row: sqlite3.Row, groups: list, best: float, authority_query: bool = False,

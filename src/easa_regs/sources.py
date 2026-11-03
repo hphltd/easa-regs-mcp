@@ -103,6 +103,15 @@ BOOKS: dict[str, Book] = {
             landing_page="https://www.easa.europa.eu/en/document-library/easy-access-rules/"
             "easy-access-rules-information-security-regulations-eu-2023203-and-20221645",
         ),
+        # AMC-20 is published per amendment, each with its own download id: bump it with each new amendment.
+        Book(
+            code="AMC20",
+            title="Easy Access Rules for Acceptable Means of Compliance for Airworthiness of Products, Parts and "
+            "Appliances (AMC-20), Amendment 23",
+            xml_download_id=137992,
+            landing_page="https://www.easa.europa.eu/en/document-library/easy-access-rules/"
+            "easy-access-rules-acceptable-means-compliance-airworthiness",
+        ),
     ]
 }
 

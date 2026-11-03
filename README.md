@@ -24,6 +24,7 @@ Built by a CPL(A)/IR flight instructor who got tired of scrolling 1,500-page PDF
 | `AERODROMES` | Regulation (EU) No 139/2014 |
 | `INITAIR` | Initial airworthiness, Regulation (EU) No 748/2012: Part 21 (certification, DOA, POA), Part 21 Light, with AMC/GM |
 | `INFOSEC` | Information security (Part-IS), Regulations (EU) 2023/203 and 2022/1645, with AMC/GM |
+| `AMC20` | AMC-20: general AMC for airworthiness of products, parts and appliances (Amendment 23) |
 
 Every rule keeps its stable EASA `ERulesId`, type (**IR** binding / **AMC** / **GM** / **CS**), location in the
 regulation, amending regulation, applicability date and its linked AMC/GM. Tables and list structure are preserved.

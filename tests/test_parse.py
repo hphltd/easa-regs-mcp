@@ -19,6 +19,14 @@ from easa_regs.parse import norm_ref, parse_book, short_type, split_ref
     ("66.A.70 Conversion provisions", "66.A.70", "Conversion provisions"),
     ("AMC1 145.A.30(e) Personnel requirements", "AMC1 145.A.30(e)", "Personnel requirements"),
     ("ML.A.803 Pilot-owner authorisation", "ML.A.803", "Pilot-owner authorisation"),
+    ("21.A.139 Production management system", "21.A.139", "Production management system"),
+    ("AMC1 21.A.139(d)(1) Production management system", "AMC1 21.A.139(d)(1)", "Production management system"),
+    ("IS.D.OR.200 Information security management system (ISMS)", "IS.D.OR.200",
+     "Information security management system (ISMS)"),
+    ("AMC 20-29 Composite Aircraft Structure", "AMC 20-29", "Composite Aircraft Structure"),
+    ("AMC 20-115D Airborne software development assurance", "AMC 20-115D", "Airborne software development assurance"),
+    ("CS 22.143 General", "CS 22.143", "General"),
+    ("AMC 22.629 Flutter", "AMC 22.629", "Flutter"),
 ])
 def test_split_ref(title, ref, heading):
     assert split_ref(title) == (ref, heading)
