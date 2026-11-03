@@ -8,6 +8,7 @@ and are taken from the book's landing page.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 
 
@@ -87,11 +88,29 @@ BOOKS: dict[str, Book] = {
             landing_page="https://www.easa.europa.eu/en/document-library/easy-access-rules/"
             "easy-access-rules-standardised-european-rules-air",
         ),
+        Book(
+            code="INITAIR",
+            title="Easy Access Rules for Initial Airworthiness and Environmental Protection "
+            "(Regulation (EU) No 748/2012)",
+            xml_download_id=136660,
+            landing_page="https://www.easa.europa.eu/en/document-library/easy-access-rules/"
+            "easy-access-rules-initial-airworthiness-and-environmental",
+        ),
+        Book(
+            code="INFOSEC",
+            title="Easy Access Rules for Information Security (Regulations (EU) 2023/203 and 2022/1645)",
+            xml_download_id=138790,
+            landing_page="https://www.easa.europa.eu/en/document-library/easy-access-rules/"
+            "easy-access-rules-information-security-regulations-eu-2023203-and-20221645",
+        ),
     ]
 }
 
-GITHUB_REPO = "muchsneaks/easa-regs-mcp"
-INDEX_URL = f"https://github.com/{GITHUB_REPO}/releases/latest/download/easa_regs.sqlite"
+# Forks that publish their own index releases set EASA_REGS_REPO=<owner>/<repo> on their host
+# (or EASA_REGS_INDEX_URL to point at any other copy of the prebuilt index).
+GITHUB_REPO = os.environ.get("EASA_REGS_REPO", "muchsneaks/easa-regs-mcp")
+INDEX_URL = os.environ.get(
+    "EASA_REGS_INDEX_URL", f"https://github.com/{GITHUB_REPO}/releases/latest/download/easa_regs.sqlite")
 
 DISCLAIMER = (
     "Unofficial reproduction of EASA Easy Access Rules for information only. "

@@ -22,6 +22,8 @@ Built by a CPL(A)/IR flight instructor who got tired of scrolling 1,500-page PDF
 | `BASIC` | Basic Regulation (EU) 2018/1139 |
 | `UAS` | Drones (Regulations (EU) 2019/947 and 2019/945) |
 | `AERODROMES` | Regulation (EU) No 139/2014 |
+| `INITAIR` | Initial airworthiness, Regulation (EU) No 748/2012: Part 21 (certification, DOA, POA), Part 21 Light, with AMC/GM |
+| `INFOSEC` | Information security (Part-IS), Regulations (EU) 2023/203 and 2022/1645, with AMC/GM |
 
 Every rule keeps its stable EASA `ERulesId`, type (**IR** binding / **AMC** / **GM** / **CS**), location in the
 regulation, amending regulation, applicability date and its linked AMC/GM. Tables and list structure are preserved.
@@ -61,6 +63,8 @@ Locally: `uvicorn app:app --port 8000`.
 **Docker host:** `docker build -t easa-regs-mcp . && docker run -p 8000:8000 easa-regs-mcp`.
 The MCP endpoint is `https://<your-host>/mcp` (stateless streamable HTTP), health check at `/health`.
 Optional `ALLOWED_HOSTS=your.domain` enables DNS-rebinding protection.
+A fork that publishes its own index releases sets `EASA_REGS_REPO=<owner>/<repo>` on its host
+(or `EASA_REGS_INDEX_URL` to any copy of `easa_regs.sqlite`).
 
 ## Develop / build the index yourself
 
