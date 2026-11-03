@@ -113,12 +113,16 @@ def test_real_counts_part21_part_is():
     con = sqlite3.connect(REAL_DB)
     counts = dict(con.execute("SELECT book, COUNT(*) FROM rules GROUP BY book"))
     assert counts.get("INITAIR", 0) > 300 and counts.get("INFOSEC", 0) > 50 and counts.get("AMC20", 0) > 20, counts
+    assert counts.get("CS22", 0) > 150, counts            # CS + AMC paragraphs of CS-22 Amendment 3
+    from easa_regs.sources import BOOKS
+    assert counts.get("SC22", 0) == len(BOOKS["SC22"].docs), counts
 
 
 @real
 @pytest.mark.parametrize("ref,book", [
     ("21.A.9", "INITAIR"), ("21.A.133", "INITAIR"), ("21.A.139", "INITAIR"), ("21.A.239", "INITAIR"),
     ("IS.D.OR.200", "INFOSEC"), ("IS.I.OR.200", "INFOSEC"), ("AMC 20-29", "AMC20"),
+    ("CS 22.143", "CS22"), ("CS 22.629", "CS22"), ("SC-22.2014-01", "SC22"), ("CM-S-008", "SC22"),
 ])
 def test_part21_part_is_refs(ref, book, monkeypatch):
     monkeypatch.setenv("EASA_REGS_DB", str(REAL_DB))

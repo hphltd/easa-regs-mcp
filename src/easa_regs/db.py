@@ -166,6 +166,7 @@ EXPANSIONS = {
     "poe": "production organisation exposition", "doh": "design organisation handbook",
     "stc": "supplemental type-certificate", "tcds": "type-certificate data sheet",
     "isms": "information security management system", "coa": "certificate of airworthiness",
+    "sc": "special condition", "esf": "equivalent safety finding", "fes": "electric propulsion",
     # German
     "verlängerung": "revalidation", "verlaengerung": "revalidation", "erneuerung": "renewal",
     "klassenberechtigung": "class rating", "musterberechtigung": "type rating", "nachtflug": "night",
@@ -260,14 +261,16 @@ SPECIFIC_HINTS = re.compile(
     r"airline|operator|gewerblich)\b", re.I)
 
 
-NICHE_BOOKS = {"SAILPLANES", "BALLOONS", "UAS", "AERODROMES", "INITAIR", "INFOSEC", "AMC20"}
+NICHE_BOOKS = {"SAILPLANES", "BALLOONS", "UAS", "AERODROMES", "INITAIR", "INFOSEC", "AMC20", "CS22", "SC22"}
 NICHE_HINTS = re.compile(
     r"\b(sailplanes?|gliders?|glid\w*|segelf\w*|SFCL|SAO|TMG|balloons?|ballon\w*|BFCL|BOP|drones?|drohne\w*|UAS|"
     r"UAV|unmanned|aerodrome operator|ADR|flugplatzbetreiber|"
     r"Part[- ]?21|21\.[AB]\.\w+|POA|DOA|POE|DOH|production organi[sz]ations?|design organi[sz]ations?|"
     r"type[- ]certificat\w*|STC|certification basis|airworthiness directives?|Form 1|"
     r"Part[- ]?IS|IS\.[A-Z]\.?\w*|ISMS|information security|cyber\w*|"
-    r"AMC[- ]?20(?:-\w+)?|CS[- ]\d{2}(?:\.\d+)?|certification specifications?)\b", re.I)
+    r"AMC[- ]?20(?:-\w+)?|CS[- ]\d{2}\w?(?:\.\d+)?|certification specifications?|"
+    r"special conditions?|SC[- ][\w.]+|equivalent safety|ESF|DEV-[\w.]+|certification memorand\w*|"
+    r"CM-[\w-]+|electric propulsion|sustainer|powered sailplanes?)\b", re.I)
 
 
 def _rerank_score(row: sqlite3.Row, groups: list, best: float, authority_query: bool = False,

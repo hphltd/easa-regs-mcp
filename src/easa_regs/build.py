@@ -1,4 +1,4 @@
-"""Build (or rebuild) the SQLite index from downloaded EASA XML packages.
+"""Build (or rebuild) the SQLite index from downloaded EASA XML packages and PDF documents.
 
 Usage:  python -m easa_regs.build [--db PATH] [--raw DIR] [BOOK ...]
 """
@@ -18,15 +18,20 @@ from .parse import parse_book
 from .sources import BOOKS
 
 
+def _downloaded(raw: Path, code: str) -> bool:
+    book = BOOKS[code]
+    return (raw / code).is_dir() if book.kind == "pdf" else (raw / f"{code}.zip").exists()
+
+
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("books", nargs="*", help=f"book codes (default: all found). Known: {', '.join(BOOKS)}")
     ap.add_argument("--db", type=Path, default=None, help="SQLite path (default: data/easa_regs.sqlite)")
-    ap.add_argument("--raw", type=Path, default=RAW_DIR, help="directory with <CODE>.zip files")
+    ap.add_argument("--raw", type=Path, default=RAW_DIR, help="directory with <CODE>.zip files and <CODE>/ PDF folders")
     ap.add_argument("--keep-going", action="store_true", help="index the other books if one fails to parse")
     args = ap.parse_args(argv)
 
-    codes = [c.upper() for c in args.books] or [c for c in BOOKS if (args.raw / f"{c}.zip").exists()]
+    codes = [c.upper() for c in args.books] or [c for c in BOOKS if _downloaded(args.raw, c)]
     if not codes:
         raise SystemExit(f"No packages in {args.raw}. Run `python -m easa_regs.fetch` first.")
     target = args.db or db.db_path()
@@ -34,10 +39,13 @@ def main(argv: list[str] | None = None) -> None:
     con = db.connect(target)
     failures: dict[str, str] = {}
     for code in codes:
-        src = args.raw / f"{code}.zip"
         t0 = time.time()
         try:
-            parsed = parse_book(src, code)
+            if BOOKS[code].kind == "pdf":
+                from .pdfbook import parse_pdf_book  # needs pdfminer.six (dev/build extra)
+                parsed = parse_pdf_book(args.raw / code, BOOKS[code])
+            else:
+                parsed = parse_book(args.raw / f"{code}.zip", code)
             if not parsed.rules:
                 raise ValueError("no rules parsed")
             n = db.store_book(con, parsed)

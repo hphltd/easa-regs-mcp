@@ -25,6 +25,8 @@ Built by a CPL(A)/IR flight instructor who got tired of scrolling 1,500-page PDF
 | `INITAIR` | Initial airworthiness, Regulation (EU) No 748/2012: Part 21 (certification, DOA, POA), Part 21 Light, with AMC/GM |
 | `INFOSEC` | Information security (Part-IS), Regulations (EU) 2023/203 and 2022/1645, with AMC/GM |
 | `AMC20` | AMC-20: general AMC for airworthiness of products, parts and appliances (Amendment 23) |
+| `CS22` | CS-22 Sailplanes and Powered Sailplanes, Amendment 3 (from the PDF; the Easy Access Rules stop at Amendment 2) |
+| `SC22` | Final EASA Special Conditions, Equivalent Safety Findings, Deviations and Certification Memoranda tagged CS-22 (PDF) |
 
 Every rule keeps its stable EASA `ERulesId`, type (**IR** binding / **AMC** / **GM** / **CS**), location in the
 regulation, amending regulation, applicability date and its linked AMC/GM. Tables and list structure are preserved.
@@ -93,6 +95,8 @@ Dockerfile, render.yaml   hosted connector on any Docker host
 
 If EASA changes a download link, update the ID in `sources.py` (the number in
 `https://www.easa.europa.eu/en/downloads/<id>/en` on the book's page).
+PDF-only books (`CS22`, `SC22`) list their documents in `sources.py` and are split by `pdfbook.py`
+(needs `pdfminer.six`, part of the `dev` extra).
 
 ## Limitations
 
