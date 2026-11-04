@@ -26,7 +26,9 @@ from .sources import ATTRIBUTION, BOOKS, DISCLAIMER
 INSTRUCTIONS = f"""\
 Search and quote the EASA Easy Access Rules (EU aviation regulations): Aircrew (Part-FCL, MED, ARA/ORA, DTO), \
 Air Operations (ORO, CAT, NCO, NCC, SPO, SPA), SERA, Sailplanes (SFCL/SAO), Balloons (BFCL/BOP), \
-Continuing Airworthiness (Part-M/ML/145/CAMO), the Basic Regulation, UAS (drones) and Aerodromes.
+Continuing Airworthiness (Part-M/ML/145/CAMO), Initial Airworthiness (Part 21 incl. POA/DOA, Part 21 Light), \
+Information Security (Part-IS), AMC-20, CS-22 (sailplanes, Amendment 3), EASA Special Conditions / ESF / \
+deviations / Certification Memoranda for CS-22, the Basic Regulation, UAS (drones) and Aerodromes.
 Queries work best in English (the rules are in English); common German terms and abbreviations are understood.
 
 How to answer regulatory questions with these tools:
@@ -34,7 +36,10 @@ How to answer regulatory questions with these tools:
 2. Always call get_easa_rule on the rules you rely on and quote the relevant sub-paragraph verbatim.
 3. Cite every statement with the rule reference (e.g. "FCL.740(b)(1)") and the book.
 4. Distinguish legal force: IR = Implementing Rule (binding), AMC = Acceptable Means of Compliance \
-(presumption of compliance, not binding), GM = Guidance Material (explanatory only), CS = Certification Specification.
+(presumption of compliance, not binding), GM = Guidance Material (explanatory only), CS = Certification Specification \
+(airworthiness code, binding once part of a product's certification basis), SC = Special Condition and \
+ESF = Equivalent Safety Finding (apply to the certification basis of the project/product they were issued for), \
+DEV = Deviation, CM = Certification Memorandum (EASA guidance, not binding).
 5. Check the related AMC/GM listed by get_easa_rule - they often contain the practical detail.
 6. If the rules do not answer the question, say so. National rules (e.g. LBA/DFS, NfL) and operator \
 manuals are NOT covered.
@@ -43,11 +48,17 @@ manuals are NOT covered.
 mcp = FastMCP("easa-regs", instructions=INSTRUCTIONS)
 READ_ONLY = ToolAnnotations(readOnlyHint=True, idempotentHint=True, openWorldHint=False)
 
-BookCode = Literal["AIRCREW", "AIROPS", "SERA", "SAILPLANES", "BALLOONS", "CONTAIR", "BASIC", "UAS", "AERODROMES"]
+BookCode = Literal["AIRCREW", "AIROPS", "SERA", "SAILPLANES", "BALLOONS", "CONTAIR", "BASIC", "UAS", "AERODROMES",
+                   "INITAIR", "INFOSEC", "AMC20", "CS22", "SC22"]
 BOOK_HELP = ("AIRCREW (Part-FCL/MED/CC/ARA/ORA/DTO), AIROPS (ORO/CAT/NCO/NCC/SPO/SPA/IAM), SERA (rules of the air), "
              "SAILPLANES (Part-SFCL/SAO), BALLOONS (Part-BFCL/BOP), CONTAIR (Part-M/ML/145/CAMO/CAO), "
-             "BASIC (Basic Regulation 2018/1139), UAS (drones), AERODROMES")
-ContentType = Literal["IR", "AMC", "GM", "CS"]
+             "BASIC (Basic Regulation 2018/1139), UAS (drones), AERODROMES, "
+             "INITAIR (Part 21: certification, design and production organisations, Part 21 Light; Reg. 748/2012), "
+             "INFOSEC (Part-IS: information security, Regs 2023/203 and 2022/1645), "
+             "AMC20 (AMC-20 general AMC for airworthiness of products, parts and appliances, e.g. AMC 20-29), "
+             "CS22 (CS-22 sailplanes and powered sailplanes, Amendment 3), "
+             "SC22 (EASA Special Conditions, ESF, deviations and CMs for CS-22, e.g. SC-22.2014-01 electric propulsion)")
+ContentType = Literal["IR", "AMC", "GM", "CS", "SC", "ESF", "DEV", "CM"]
 
 
 @lru_cache(maxsize=1)

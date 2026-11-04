@@ -56,7 +56,8 @@ def main() -> None:
         "long_description": (
             "Gives Claude direct access to 9,000+ rules from the official EASA Easy Access Rules: Aircrew "
             "(Part-FCL, MED, ARA, ORA, DTO), Air Operations (ORO, CAT, NCO, NCC, SPO, SPA), SERA, Sailplanes, "
-            "Balloons, Continuing Airworthiness (Part-M, ML, 145, CAMO), Basic Regulation, UAS and Aerodromes. "
+            "Balloons, Continuing Airworthiness (Part-M, ML, 145, CAMO), Initial Airworthiness (Part 21), "
+            "Information Security (Part-IS), Basic Regulation, UAS and Aerodromes. "
             "Every answer can quote the original text with rule reference, legal type (IR/AMC/GM) and revision. "
             "The index updates itself weekly. Unofficial and not legally binding."
         ),

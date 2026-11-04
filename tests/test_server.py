@@ -108,6 +108,80 @@ def test_german_queries(query, expected, monkeypatch):
     assert expected in [h["ref"] for h in server.search_easa_rules(query, limit=5)["results"]]
 
 
+@real
+def test_real_counts_part21_part_is():
+    con = sqlite3.connect(REAL_DB)
+    counts = dict(con.execute("SELECT book, COUNT(*) FROM rules GROUP BY book"))
+    assert counts.get("INITAIR", 0) > 300 and counts.get("INFOSEC", 0) > 50 and counts.get("AMC20", 0) > 20, counts
+    assert counts.get("CS22", 0) > 150, counts            # CS + AMC paragraphs of CS-22 Amendment 3
+    from easa_regs.sources import BOOKS
+    assert counts.get("SC22", 0) == len(BOOKS["SC22"].docs), counts
+
+
+@real
+@pytest.mark.parametrize("ref,book", [
+    ("21.A.9", "INITAIR"), ("21.A.133", "INITAIR"), ("21.A.139", "INITAIR"), ("21.A.239", "INITAIR"),
+    ("IS.D.OR.200", "INFOSEC"), ("IS.I.OR.200", "INFOSEC"), ("AMC 20-29", "AMC20"),
+    ("CS 22.143", "CS22"), ("CS 22.629", "CS22"), ("SC-22.2014-01", "SC22"), ("CM-S-008", "SC22"),
+])
+def test_part21_part_is_refs(ref, book, monkeypatch):
+    monkeypatch.setenv("EASA_REGS_DB", str(REAL_DB))
+    server._con.cache_clear()
+    rule = server.get_easa_rule(ref)
+    assert rule.get("ref") == ref and rule.get("book") == book, rule
+    assert len(rule.get("text", "")) > 100
+
+
+@real
+@pytest.mark.parametrize("query,book,expected", [
+    ("production organisation eligibility", "INITAIR", {"21.A.133"}),
+    ("production management system", "INITAIR", {"21.A.139"}),
+    ("design management system", "INITAIR", {"21.A.239"}),
+    ("information security management system", "INFOSEC", {"IS.D.OR.200", "IS.I.OR.200"}),
+])
+def test_golden_search_part21_part_is(query, book, expected, monkeypatch):
+    monkeypatch.setenv("EASA_REGS_DB", str(REAL_DB))
+    server._con.cache_clear()
+    top = [h["ref"] for h in server.search_easa_rules(query, book=book, limit=5)["results"]]
+    assert expected & set(top), f"{query!r}: {top}"
+
+
+@pytest.mark.parametrize("query,niche", [
+    ("POA production management system", True), ("21.A.139(d)", True), ("Part-IS ISMS", True),
+    ("IS.D.OR.200 information security", True), ("SEP class rating revalidation", False),
+])
+def test_part21_niche_hints(query, niche):
+    from easa_regs import db
+    assert bool(db.NICHE_HINTS.search(query)) is niche
+
+
+@pytest.mark.parametrize("query,token", [
+    ("what does CS 22.143 say", "CS 22.143"), ("AMC 20-29 composite", "AMC 20-29"),
+    ("AMC 20-115D", "AMC 20-115D"), ("21.A.139(d) POA", "21.A.139(d)"),
+])
+def test_ref_tokens_cs_and_amc20(query, token):
+    from easa_regs import db
+    assert token in [m.group(0) for m in db.REF_TOKEN.finditer(query)]
+
+
+def test_part21_expansions():
+    from easa_regs import db
+    assert db._expansion("POA") == "production organisation approval"
+    assert db._expansion("ISMS") == "information security management system"
+
+
+def test_index_url_override(monkeypatch):
+    import importlib
+    from easa_regs import sources
+    monkeypatch.setenv("EASA_REGS_REPO", "example/fork")
+    try:
+        assert importlib.reload(sources).INDEX_URL == \
+            "https://github.com/example/fork/releases/latest/download/easa_regs.sqlite"
+    finally:
+        monkeypatch.delenv("EASA_REGS_REPO")
+        importlib.reload(sources)
+
+
 def test_book_codes_in_sync():
     from typing import get_args
     from easa_regs.sources import BOOKS

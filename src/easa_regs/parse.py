@@ -77,6 +77,8 @@ _PREFIX = re.compile(r"^(?:AMC|GM|CS|AMC-GM)\d*$")
 # also Part-66/145/21 style: '66.A.70', '145.A.30', '21.A.3'
 _DOTTED = re.compile(r"^(?:[A-Z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)*\.[A-Za-z0-9]\S*|\d{2,3}\.[A-Z]{1,2}\.\S+|Part-[A-Z0-9]{2,}\S*)$")
 _NUMBERISH = re.compile(r"^(?:\d+[a-z]?|[IVXLC]+|[A-Z])(?:\([^)\s]*\))*[;,]?$")
+# certification specifications and AMC-20: 'CS 22.143(a)', 'AMC 22.629', 'AMC 20-29', 'AMC 20-115D'
+_CSNUM = re.compile(r"^\d{2}[-.]\d+[A-Z]?(?:\([^)\s]*\))*[;,]?$")
 _KEYWORDS = {"Article", "Appendix", "Annex", "ANNEX", "Section", "SECTION", "SUBJECT"}
 
 
@@ -106,6 +108,8 @@ def split_ref(title: str) -> tuple[str, str]:
             out.extend(tokens[i:i + 2]); i += 2
             if out[-1] in _KEYWORDS and i < len(tokens) and _NUMBERISH.match(tokens[i]):
                 out.append(tokens[i]); i += 1
+    elif out and i < len(tokens) and _CSNUM.match(tokens[i]):
+        out.append(tokens[i]); i += 1
     elif i < len(tokens) and _DOTTED.match(tokens[i]):
         out.append(tokens[i]); i += 1
         # 'AMC1 FCL.940.FI; FCL.940.IRI' - multi-rule references

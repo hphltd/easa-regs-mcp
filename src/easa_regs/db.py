@@ -81,7 +81,8 @@ CREATE VIRTUAL TABLE IF NOT EXISTS rules_fts USING fts5(
 
 TYPE_ORDER = "CASE content_type WHEN 'IR' THEN 0 WHEN 'AMC' THEN 1 WHEN 'GM' THEN 2 WHEN 'CS' THEN 3 ELSE 4 END"
 REF_TOKEN = re.compile(
-    r"\b(?:(?:AMC|GM|CS)\d*\s+)?(?:[A-Z]{2,}[A-Z0-9]*|\d{2,3}\.[A-Z]{1,2})(?:\.[A-Z0-9]+)+(?:\([a-z0-9]+\))*", re.I)
+    r"\b(?:(?:AMC|GM|CS)\d*\s+)?(?:[A-Z]{2,}[A-Z0-9]*|\d{2,3}\.[A-Z]{1,2})(?:\.[A-Z0-9]+)+(?:\([a-z0-9]+\))*"
+    r"|\b(?:AMC|GM|CS)\d*\s+\d{2}[-.]\d+[A-Z]?\b(?:\([a-z0-9]+\))*", re.I)
 
 
 def db_path() -> Path:
@@ -160,6 +161,12 @@ EXPANSIONS = {
     "fstd": "flight simulation training device", "ffs": "full flight simulator", "om": "operations manual",
     "ctr": "control zone", "atz": "aerodrome traffic zone", "tmz": "transponder mandatory zone",
     "rmz": "radio mandatory zone", "ame": "aero-medical examiner", "aemc": "aero-medical centre",
+    # Part 21 / Part-IS (initial airworthiness, design and production organisations, information security)
+    "poa": "production organisation approval", "doa": "design organisation approval",
+    "poe": "production organisation exposition", "doh": "design organisation handbook",
+    "stc": "supplemental type-certificate", "tcds": "type-certificate data sheet",
+    "isms": "information security management system", "coa": "certificate of airworthiness",
+    "sc": "special condition", "esf": "equivalent safety finding", "fes": "electric propulsion",
     # German
     "verlängerung": "revalidation", "verlaengerung": "revalidation", "erneuerung": "renewal",
     "klassenberechtigung": "class rating", "musterberechtigung": "type rating", "nachtflug": "night",
@@ -254,10 +261,16 @@ SPECIFIC_HINTS = re.compile(
     r"airline|operator|gewerblich)\b", re.I)
 
 
-NICHE_BOOKS = {"SAILPLANES", "BALLOONS", "UAS", "AERODROMES"}
+NICHE_BOOKS = {"SAILPLANES", "BALLOONS", "UAS", "AERODROMES", "INITAIR", "INFOSEC", "AMC20", "CS22", "SC22"}
 NICHE_HINTS = re.compile(
     r"\b(sailplanes?|gliders?|glid\w*|segelf\w*|SFCL|SAO|TMG|balloons?|ballon\w*|BFCL|BOP|drones?|drohne\w*|UAS|"
-    r"UAV|unmanned|aerodrome operator|ADR|flugplatzbetreiber)\b", re.I)
+    r"UAV|unmanned|aerodrome operator|ADR|flugplatzbetreiber|"
+    r"Part[- ]?21|21\.[AB]\.\w+|POA|DOA|POE|DOH|production organi[sz]ations?|design organi[sz]ations?|"
+    r"type[- ]certificat\w*|STC|certification basis|airworthiness directives?|Form 1|"
+    r"Part[- ]?IS|IS\.[A-Z]\.?\w*|ISMS|information security|cyber\w*|"
+    r"AMC[- ]?20(?:-\w+)?|CS[- ]\d{2}\w?(?:\.\d+)?|certification specifications?|"
+    r"special conditions?|SC[- ][\w.]+|equivalent safety|ESF|DEV-[\w.]+|certification memorand\w*|"
+    r"CM-[\w-]+|electric propulsion|sustainer|powered sailplanes?)\b", re.I)
 
 
 def _rerank_score(row: sqlite3.Row, groups: list, best: float, authority_query: bool = False,
@@ -272,8 +285,8 @@ def _rerank_score(row: sqlite3.Row, groups: list, best: float, authority_query: 
     score = 2.0 * rel + 3.0 * _coverage(groups, title) + 0.8 * _coverage(groups, crumbs) \
         + 2.0 * _coverage(groups, body)             # ~AND semantics without losing OR recall
     score += {"IR": 0.3, "AMC": 0.15, "GM": 0.05}.get(row["content_type"], 0.0)
-    # most users are pilots/organisations: authority-side rules (ARA/ARO) only when asked for
-    if not authority_query and re.match(r"^(?:(?:AMC|GM)\d*\s+)?AR[AO]\.", row["ref"] or ""):
+    # most users are pilots/organisations: authority-side rules (ARA/ARO, 21.B, IS.AR) only when asked for
+    if not authority_query and re.match(r"^(?:(?:AMC|GM)\d*\s+)?(?:AR[AO]\.|21\.B\.|IS\.AR\.)", row["ref"] or ""):
         score -= 1.0
     # sailplane/balloon/drone/aerodrome books only win when the question is about them
     if not niche_books_query and row["book"] in NICHE_BOOKS:

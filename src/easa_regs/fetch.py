@@ -1,6 +1,7 @@
-"""Download the EASA Easy Access Rules XML packages, or a prebuilt index.
+"""Download the EASA Easy Access Rules XML packages (and PDF-only documents), or a prebuilt index.
 
 Usage:  python -m easa_regs.fetch [BOOK ...]      (default: all books) -> data/raw/<CODE>.zip
+                                                  PDF books -> data/raw/<CODE>/<download id>.pdf
         python -m easa_regs.fetch --index          prebuilt SQLite index from the latest GitHub release
 Standard library only, so it runs before any dependency is installed.
 """
@@ -17,24 +18,32 @@ RAW_DIR = Path(__file__).resolve().parents[2] / "data" / "raw"
 UA = "Mozilla/5.0 (easa-regs-mcp; +https://github.com/muchsneaks/easa-regs-mcp) Python-urllib"
 
 
-def fetch(code: str, raw_dir: Path = RAW_DIR) -> Path:
-    book = BOOKS[code]
-    raw_dir.mkdir(parents=True, exist_ok=True)
-    target = raw_dir / f"{code}.zip"
+def _download(url: str, target: Path, label: str, accept: tuple[str, ...]) -> Path:
+    target.parent.mkdir(parents=True, exist_ok=True)
     tmp = target.with_suffix(".part")
-    req = urllib.request.Request(book.xml_url, headers={"User-Agent": UA})
-    print(f"[{code}] {book.xml_url}", flush=True)
+    req = urllib.request.Request(url, headers={"User-Agent": UA})
+    print(f"[{label}] {url}", flush=True)
     with urllib.request.urlopen(req, timeout=300) as resp, open(tmp, "wb") as fh:
         ctype = resp.headers.get("content-type", "")
-        if "zip" not in ctype and "octet-stream" not in ctype:
-            raise RuntimeError(f"[{code}] unexpected content-type {ctype!r} - EASA page layout changed?")
+        if not any(a in ctype for a in accept):
+            raise RuntimeError(f"[{label}] unexpected content-type {ctype!r} - EASA page layout changed?")
         total = 0
         while chunk := resp.read(1 << 20):
             fh.write(chunk)
             total += len(chunk)
     tmp.replace(target)
-    print(f"[{code}] saved {total / 1e6:.1f} MB -> {target}", flush=True)
+    print(f"[{label}] saved {total / 1e6:.1f} MB -> {target}", flush=True)
     return target
+
+
+def fetch(code: str, raw_dir: Path = RAW_DIR) -> Path:
+    book = BOOKS[code]
+    if book.kind == "pdf":
+        folder = raw_dir / code
+        for doc in book.docs:
+            _download(doc.url, folder / f"{doc.download_id}.pdf", f"{code} {doc.ref}", ("pdf", "octet-stream"))
+        return folder
+    return _download(book.xml_url, raw_dir / f"{code}.zip", code, ("zip", "octet-stream"))
 
 
 def download_index(target: Path, url: str = INDEX_URL) -> Path:
