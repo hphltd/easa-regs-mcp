@@ -1,7 +1,11 @@
 # Remote MCP server (streamable HTTP at /mcp) for Claude custom connectors.
 FROM python:3.12-slim
 
+# Repository whose releases provide the prebuilt index (this fork publishes its own).
+ARG EASA_REGS_REPO=hphltd/easa-regs-mcp
+
 ENV PYTHONUNBUFFERED=1 \
+    EASA_REGS_REPO=${EASA_REGS_REPO} \
     PIP_NO_CACHE_DIR=1 \
     HOST=0.0.0.0 \
     PORT=8000
