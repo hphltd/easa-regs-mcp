@@ -193,6 +193,10 @@ BOOKS: dict[str, Book] = {
     ]
 }
 
+# A newer amendment published as its own book supersedes the same references in an older book:
+# CS22 holds CS-22 Amendment 3, the SAILPLANES Easy Access Rules still carry CS-22 Amendment 2.
+SUPERSEDES = {"CS22": "SAILPLANES"}
+
 # Forks that publish their own index releases set EASA_REGS_REPO=<owner>/<repo> on their host
 # (or EASA_REGS_INDEX_URL to point at any other copy of the prebuilt index).
 GITHUB_REPO = os.environ.get("EASA_REGS_REPO", "muchsneaks/easa-regs-mcp")

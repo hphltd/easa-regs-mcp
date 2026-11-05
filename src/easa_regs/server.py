@@ -121,6 +121,11 @@ def get_easa_rule(
         hits = db.search(con, ref, book=book, limit=5) or db.nearest_refs(con, ref, book=book)
         return {"found": False, "message": f"No rule matches {ref!r}. Try search_easa_rules.", "did_you_mean": hits}
     exact = [r for r in rows if r["ref_norm"] == db.norm_ref(ref)] or rows
+    superseded = []
+    if not book:
+        current = db.drop_superseded(exact)
+        superseded = [r for r in exact if r not in current]
+        exact = current
     books = {r["book"] for r in exact}
     if len(books) > 1 and not book:
         return {
@@ -150,6 +155,11 @@ def get_easa_rule(
         "source_url": (db.book_info(con, row["book"]) or {}).get("landing_page", ""),
         "disclaimer": DISCLAIMER,
     }
+    if superseded:
+        out["superseded_versions"] = [{"ref": r["ref"], "book": r["book"], "title": r["title"]} for r in superseded]
+        out["note"] = (f"Current text from {row['book']}; the older version in "
+                       f"{', '.join(sorted({r['book'] for r in superseded}))} is superseded "
+                       "(read it with book=... if you need it).")
     if len(rows) > 1:
         out["other_matches"] = [{"ref": r["ref"], "title": r["title"], "type": r["content_type"]}
                                 for r in rows[1:6] if r["id"] != row["id"]]

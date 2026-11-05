@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .parse import ParsedBook, norm_ref
-from .sources import BOOKS
+from .sources import BOOKS, SUPERSEDES
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -79,6 +79,8 @@ CREATE VIRTUAL TABLE IF NOT EXISTS rules_fts USING fts5(
 );
 """
 
+# a book superseded by another one (SAILPLANES' CS-22 Amdt 2 vs CS22 Amdt 3) sorts after it
+SUPERSEDED_LAST = "(r.book IN (" + ",".join(f"'{b}'" for b in SUPERSEDES.values()) + "))" if SUPERSEDES else "0"
 TYPE_ORDER = "CASE content_type WHEN 'IR' THEN 0 WHEN 'AMC' THEN 1 WHEN 'GM' THEN 2 WHEN 'CS' THEN 3 ELSE 4 END"
 REF_TOKEN = re.compile(
     r"\b(?:(?:AMC|GM|CS)\d*\s+)?(?:[A-Z]{2,}[A-Z0-9]*|\d{2,3}\.[A-Z]{1,2})(?:\.[A-Z0-9]+)+(?:\([a-z0-9]+\))*"
@@ -261,20 +263,44 @@ SPECIFIC_HINTS = re.compile(
     r"airline|operator|gewerblich)\b", re.I)
 
 
-NICHE_BOOKS = {"SAILPLANES", "BALLOONS", "UAS", "AERODROMES", "INITAIR", "INFOSEC", "AMC20", "CS22", "SC22"}
-NICHE_HINTS = re.compile(
-    r"\b(sailplanes?|gliders?|glid\w*|segelf\w*|SFCL|SAO|TMG|balloons?|ballon\w*|BFCL|BOP|drones?|drohne\w*|UAS|"
-    r"UAV|unmanned|aerodrome operator|ADR|flugplatzbetreiber|"
-    r"Part[- ]?21|21\.[AB]\.\w+|POA|DOA|POE|DOH|production organi[sz]ations?|design organi[sz]ations?|"
-    r"type[- ]certificat\w*|STC|certification basis|airworthiness directives?|Form 1|"
-    r"Part[- ]?IS|IS\.[A-Z]\.?\w*|ISMS|information security|cyber\w*|"
-    r"AMC[- ]?20(?:-\w+)?|CS[- ]\d{2}\w?(?:\.\d+)?|certification specifications?|"
-    r"special conditions?|SC[- ][\w.]+|equivalent safety|ESF|DEV-[\w.]+|certification memorand\w*|"
-    r"CM-[\w-]+|electric propulsion|sustainer|powered sailplanes?)\b", re.I)
+# Books outside the pilot/operator mainstream: they rank only when the question is about *that* book.
+# Each book has its own hints, so e.g. a glider-licence question does not also lift CS-22, Part 21 or drones.
+NICHE_BOOK_HINTS: dict[str, str] = {
+    "SAILPLANES": r"sailplanes?|gliders?|glid\w*|segelf\w*|SFCL|SAO|TMG",
+    "BALLOONS": r"balloons?|ballon\w*|BFCL|BOP",
+    "UAS": r"drones?|drohne\w*|UAS|UAV|unmanned",
+    "AERODROMES": r"aerodrome operator|ADR|flugplatzbetreiber",
+    "INITAIR": r"Part[- ]?21|21\.[AB]\.\w+|POA|DOA|POE|DOH|production organi[sz]ations?|design organi[sz]ations?|"
+               r"type[- ]certificat\w*|STC|certification basis|airworthiness directives?|Form 1",
+    "INFOSEC": r"Part[- ]?IS|IS\.[A-Z]\.?\w*|ISMS|information security|cyber\w*",
+    "AMC20": r"AMC[- ]?20(?:-\w+)?|certification specifications?",
+    "CS22": r"CS[- ]22\w?(?:\.\d+)?|certification specifications?|certification basis|"
+            r"powered sailplanes?|sustainer|electric propulsion",
+    "SC22": r"special conditions?|SC[- ][\w.]+|equivalent safety|ESF|DEV-[\w.]+|certification memorand\w*|"
+            r"CM-[\w-]+|certification basis|electric propulsion|sustainer|powered sailplanes?",
+}
+NICHE_BOOKS = set(NICHE_BOOK_HINTS)
+_NICHE_RES = {b: re.compile(rf"\b(?:{h})\b", re.I) for b, h in NICHE_BOOK_HINTS.items()}
+NICHE_HINTS = re.compile(r"\b(?:" + "|".join(NICHE_BOOK_HINTS.values()) + r")\b", re.I)
+
+
+def drop_superseded(rows: list) -> list:
+    """Of rows carrying the same reference, keep the superseding book's rows (CS22 over SAILPLANES)."""
+    books = {r["book"] for r in rows}
+    gone = {old for new, old in SUPERSEDES.items() if new in books}
+    return [r for r in rows if r["book"] not in gone] or rows
+
+
+def niche_books_for(query: str, book: str | None = None) -> set[str]:
+    """The niche books a query is about (by its terms, or because it is restricted to that book)."""
+    books = {b for b, rx in _NICHE_RES.items() if rx.search(query)}
+    if (book or "").upper() in NICHE_BOOKS:
+        books.add(book.upper())
+    return books
 
 
 def _rerank_score(row: sqlite3.Row, groups: list, best: float, authority_query: bool = False,
-                  specific_query: bool = False, niche_books_query: bool = False) -> float:
+                  specific_query: bool = False, niche_books: frozenset[str] | set[str] = frozenset()) -> float:
     """bm25 is dominated by long texts; reward rules whose title/location carry the query terms."""
     rel = row["rank"] / best if best else 0.0          # 1.0 for the best bm25 hit
     if not groups:
@@ -288,8 +314,8 @@ def _rerank_score(row: sqlite3.Row, groups: list, best: float, authority_query: 
     # most users are pilots/organisations: authority-side rules (ARA/ARO, 21.B, IS.AR) only when asked for
     if not authority_query and re.match(r"^(?:(?:AMC|GM)\d*\s+)?(?:AR[AO]\.|21\.B\.|IS\.AR\.)", row["ref"] or ""):
         score -= 1.0
-    # sailplane/balloon/drone/aerodrome books only win when the question is about them
-    if not niche_books_query and row["book"] in NICHE_BOOKS:
+    # sailplane/balloon/drone/aerodrome/Part 21/Part-IS/AMC-20/CS-22/SC books only win when asked about
+    if row["book"] in NICHE_BOOKS and row["book"] not in niche_books:
         score -= 0.6
     # operation-specific parts (CAT, SPO, SPA, IAM, NCC) only win when the question is about them
     if not specific_query and re.match(r"^(?:(?:AMC|GM)\d*\s+)?(?:CAT|SPO|SPA|UAM|NCC)\.", row["ref"] or ""):
@@ -320,7 +346,7 @@ def search(con, query: str, book=None, content_type=None, limit: int = 8) -> lis
         key = norm_ref(m.group(0))
         rows = con.execute(
             f"SELECT r.*, '' AS snip FROM rules r WHERE (r.ref_norm = ? OR r.ref_norm LIKE ? OR r.ref_norm LIKE ?){fsql} "
-            f"ORDER BY (r.ref_norm = ?) DESC, {TYPE_ORDER}, r.seq LIMIT ?",
+            f"ORDER BY (r.ref_norm = ?) DESC, {SUPERSEDED_LAST}, {TYPE_ORDER}, r.seq LIMIT ?",
             [key, key + "(%", "%" + key + "%", key, *fargs, limit],
         ).fetchall()
         for row in rows:
@@ -332,7 +358,7 @@ def search(con, query: str, book=None, content_type=None, limit: int = 8) -> lis
     groups = _groups(query)
     authority_query = bool(AUTHORITY_HINTS.search(query))
     specific_query = bool(SPECIFIC_HINTS.search(query))
-    niche_books_query = bool(NICHE_HINTS.search(query)) or (book or "").upper() in NICHE_BOOKS
+    niche_books = niche_books_for(query, book)
     fq = _fts_query(query, "OR")
     if fq and len(results) < limit:
         rows = con.execute(
@@ -344,7 +370,7 @@ def search(con, query: str, book=None, content_type=None, limit: int = 8) -> lis
         ).fetchall()
         best = min((r["rank"] for r in rows), default=0.0)
         for row in sorted(rows, key=lambda r: _rerank_score(r, groups, best, authority_query, specific_query,
-                                                           niche_books_query),
+                                                           niche_books),
                           reverse=True):
             if len(results) >= limit:
                 break
