@@ -56,8 +56,8 @@ The first start downloads the prebuilt index (~33 MB) from the latest release an
 
 ### Host the remote connector yourself
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/hphltd/easa-regs-mcp&env=EASA_REGS_REPO&envDescription=GitHub%20repo%20whose%20releases%20hold%20the%20index%20(hphltd%2Feasa-regs-mcp))
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/hphltd/easa-regs-mcp)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/muchsneaks/easa-regs-mcp)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/muchsneaks/easa-regs-mcp)
 
 **Vercel / serverless:** `app.py` exposes a lifespan-free ASGI app (`easa_regs.asgi:app`). It downloads the
 prebuilt index to `/tmp` on first use and refreshes it daily, so no build step or redeploy is needed.
@@ -67,9 +67,7 @@ Locally: `uvicorn app:app --port 8000`.
 The MCP endpoint is `https://<your-host>/mcp` (stateless streamable HTTP), health check at `/health`.
 Optional `ALLOWED_HOSTS=your.domain` enables DNS-rebinding protection.
 A fork that publishes its own index releases sets `EASA_REGS_REPO=<owner>/<repo>` on its host
-(or `EASA_REGS_INDEX_URL` to any copy of `easa_regs.sqlite`). This fork (with Part 21, Part-IS, AMC-20,
-CS-22 and the CS-22 Special Conditions) uses `EASA_REGS_REPO=hphltd/easa-regs-mcp`: `render.yaml` and the
-`Dockerfile` already set it; on Vercel enter it when the button asks (or under *Settings → Environment Variables*).
+(or `EASA_REGS_INDEX_URL` to any copy of `easa_regs.sqlite`).
 
 ## Develop / build the index yourself
 
