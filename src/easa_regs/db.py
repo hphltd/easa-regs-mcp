@@ -261,20 +261,37 @@ SPECIFIC_HINTS = re.compile(
     r"airline|operator|gewerblich)\b", re.I)
 
 
-NICHE_BOOKS = {"SAILPLANES", "BALLOONS", "UAS", "AERODROMES", "INITAIR", "INFOSEC", "AMC20", "CS22", "SC22"}
-NICHE_HINTS = re.compile(
-    r"\b(sailplanes?|gliders?|glid\w*|segelf\w*|SFCL|SAO|TMG|balloons?|ballon\w*|BFCL|BOP|drones?|drohne\w*|UAS|"
-    r"UAV|unmanned|aerodrome operator|ADR|flugplatzbetreiber|"
-    r"Part[- ]?21|21\.[AB]\.\w+|POA|DOA|POE|DOH|production organi[sz]ations?|design organi[sz]ations?|"
-    r"type[- ]certificat\w*|STC|certification basis|airworthiness directives?|Form 1|"
-    r"Part[- ]?IS|IS\.[A-Z]\.?\w*|ISMS|information security|cyber\w*|"
-    r"AMC[- ]?20(?:-\w+)?|CS[- ]\d{2}\w?(?:\.\d+)?|certification specifications?|"
-    r"special conditions?|SC[- ][\w.]+|equivalent safety|ESF|DEV-[\w.]+|certification memorand\w*|"
-    r"CM-[\w-]+|electric propulsion|sustainer|powered sailplanes?)\b", re.I)
+# Books outside the pilot/operator mainstream: they rank only when the question is about *that* book.
+# Each book has its own hints, so e.g. a glider-licence question does not also lift CS-22, Part 21 or drones.
+NICHE_BOOK_HINTS: dict[str, str] = {
+    "SAILPLANES": r"sailplanes?|gliders?|glid\w*|segelf\w*|SFCL|SAO|TMG",
+    "BALLOONS": r"balloons?|ballon\w*|BFCL|BOP",
+    "UAS": r"drones?|drohne\w*|UAS|UAV|unmanned",
+    "AERODROMES": r"aerodrome operator|ADR|flugplatzbetreiber",
+    "INITAIR": r"Part[- ]?21|21\.[AB]\.\w+|POA|DOA|POE|DOH|production organi[sz]ations?|design organi[sz]ations?|"
+               r"type[- ]certificat\w*|STC|certification basis|airworthiness directives?|Form 1",
+    "INFOSEC": r"Part[- ]?IS|IS\.[A-Z]\.?\w*|ISMS|information security|cyber\w*",
+    "AMC20": r"AMC[- ]?20(?:-\w+)?|certification specifications?",
+    "CS22": r"CS[- ]22\w?(?:\.\d+)?|certification specifications?|certification basis|"
+            r"powered sailplanes?|sustainer|electric propulsion",
+    "SC22": r"special conditions?|SC[- ][\w.]+|equivalent safety|ESF|DEV-[\w.]+|certification memorand\w*|"
+            r"CM-[\w-]+|certification basis|electric propulsion|sustainer|powered sailplanes?",
+}
+NICHE_BOOKS = set(NICHE_BOOK_HINTS)
+_NICHE_RES = {b: re.compile(rf"\b(?:{h})\b", re.I) for b, h in NICHE_BOOK_HINTS.items()}
+NICHE_HINTS = re.compile(r"\b(?:" + "|".join(NICHE_BOOK_HINTS.values()) + r")\b", re.I)
+
+
+def niche_books_for(query: str, book: str | None = None) -> set[str]:
+    """The niche books a query is about (by its terms, or because it is restricted to that book)."""
+    books = {b for b, rx in _NICHE_RES.items() if rx.search(query)}
+    if (book or "").upper() in NICHE_BOOKS:
+        books.add(book.upper())
+    return books
 
 
 def _rerank_score(row: sqlite3.Row, groups: list, best: float, authority_query: bool = False,
-                  specific_query: bool = False, niche_books_query: bool = False) -> float:
+                  specific_query: bool = False, niche_books: frozenset[str] | set[str] = frozenset()) -> float:
     """bm25 is dominated by long texts; reward rules whose title/location carry the query terms."""
     rel = row["rank"] / best if best else 0.0          # 1.0 for the best bm25 hit
     if not groups:
@@ -288,8 +305,8 @@ def _rerank_score(row: sqlite3.Row, groups: list, best: float, authority_query: 
     # most users are pilots/organisations: authority-side rules (ARA/ARO, 21.B, IS.AR) only when asked for
     if not authority_query and re.match(r"^(?:(?:AMC|GM)\d*\s+)?(?:AR[AO]\.|21\.B\.|IS\.AR\.)", row["ref"] or ""):
         score -= 1.0
-    # sailplane/balloon/drone/aerodrome books only win when the question is about them
-    if not niche_books_query and row["book"] in NICHE_BOOKS:
+    # sailplane/balloon/drone/aerodrome/Part 21/Part-IS/AMC-20/CS-22/SC books only win when asked about
+    if row["book"] in NICHE_BOOKS and row["book"] not in niche_books:
         score -= 0.6
     # operation-specific parts (CAT, SPO, SPA, IAM, NCC) only win when the question is about them
     if not specific_query and re.match(r"^(?:(?:AMC|GM)\d*\s+)?(?:CAT|SPO|SPA|UAM|NCC)\.", row["ref"] or ""):
@@ -332,7 +349,7 @@ def search(con, query: str, book=None, content_type=None, limit: int = 8) -> lis
     groups = _groups(query)
     authority_query = bool(AUTHORITY_HINTS.search(query))
     specific_query = bool(SPECIFIC_HINTS.search(query))
-    niche_books_query = bool(NICHE_HINTS.search(query)) or (book or "").upper() in NICHE_BOOKS
+    niche_books = niche_books_for(query, book)
     fq = _fts_query(query, "OR")
     if fq and len(results) < limit:
         rows = con.execute(
@@ -344,7 +361,7 @@ def search(con, query: str, book=None, content_type=None, limit: int = 8) -> lis
         ).fetchall()
         best = min((r["rank"] for r in rows), default=0.0)
         for row in sorted(rows, key=lambda r: _rerank_score(r, groups, best, authority_query, specific_query,
-                                                           niche_books_query),
+                                                           niche_books),
                           reverse=True):
             if len(results) >= limit:
                 break

@@ -155,6 +155,25 @@ def test_part21_niche_hints(query, niche):
     assert bool(db.NICHE_HINTS.search(query)) is niche
 
 
+@pytest.mark.parametrize("query,books", [
+    ("glider launch methods SFCL", {"SAILPLANES"}),
+    ("EASA Form 1 release certificate", {"INITAIR"}),
+    ("CS 22.143 flutter", {"CS22"}),
+    ("IS.D.OR.200 ISMS", {"INFOSEC"}),
+    ("SC-22.2014-01 electric propulsion", {"CS22", "SC22"}),
+    ("drone open category", {"UAS"}),
+    ("SEP class rating revalidation", set()),
+])
+def test_niche_books_per_book(query, books):
+    from easa_regs import db
+    assert db.niche_books_for(query) == books
+
+
+def test_niche_books_book_filter():
+    from easa_regs import db
+    assert db.niche_books_for("stall speed", book="cs22") == {"CS22"}
+
+
 @pytest.mark.parametrize("query,token", [
     ("what does CS 22.143 say", "CS 22.143"), ("AMC 20-29 composite", "AMC 20-29"),
     ("AMC 20-115D", "AMC 20-115D"), ("21.A.139(d) POA", "21.A.139(d)"),
