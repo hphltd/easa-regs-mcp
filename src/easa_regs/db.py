@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .parse import ParsedBook, norm_ref
-from .sources import BOOKS
+from .sources import BOOKS, SUPERSEDES
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -79,6 +79,8 @@ CREATE VIRTUAL TABLE IF NOT EXISTS rules_fts USING fts5(
 );
 """
 
+# a book superseded by another one (SAILPLANES' CS-22 Amdt 2 vs CS22 Amdt 3) sorts after it
+SUPERSEDED_LAST = "(r.book IN (" + ",".join(f"'{b}'" for b in SUPERSEDES.values()) + "))" if SUPERSEDES else "0"
 TYPE_ORDER = "CASE content_type WHEN 'IR' THEN 0 WHEN 'AMC' THEN 1 WHEN 'GM' THEN 2 WHEN 'CS' THEN 3 ELSE 4 END"
 REF_TOKEN = re.compile(
     r"\b(?:(?:AMC|GM|CS)\d*\s+)?(?:[A-Z]{2,}[A-Z0-9]*|\d{2,3}\.[A-Z]{1,2})(?:\.[A-Z0-9]+)+(?:\([a-z0-9]+\))*"
@@ -282,6 +284,13 @@ _NICHE_RES = {b: re.compile(rf"\b(?:{h})\b", re.I) for b, h in NICHE_BOOK_HINTS.
 NICHE_HINTS = re.compile(r"\b(?:" + "|".join(NICHE_BOOK_HINTS.values()) + r")\b", re.I)
 
 
+def drop_superseded(rows: list) -> list:
+    """Of rows carrying the same reference, keep the superseding book's rows (CS22 over SAILPLANES)."""
+    books = {r["book"] for r in rows}
+    gone = {old for new, old in SUPERSEDES.items() if new in books}
+    return [r for r in rows if r["book"] not in gone] or rows
+
+
 def niche_books_for(query: str, book: str | None = None) -> set[str]:
     """The niche books a query is about (by its terms, or because it is restricted to that book)."""
     books = {b for b, rx in _NICHE_RES.items() if rx.search(query)}
@@ -337,7 +346,7 @@ def search(con, query: str, book=None, content_type=None, limit: int = 8) -> lis
         key = norm_ref(m.group(0))
         rows = con.execute(
             f"SELECT r.*, '' AS snip FROM rules r WHERE (r.ref_norm = ? OR r.ref_norm LIKE ? OR r.ref_norm LIKE ?){fsql} "
-            f"ORDER BY (r.ref_norm = ?) DESC, {TYPE_ORDER}, r.seq LIMIT ?",
+            f"ORDER BY (r.ref_norm = ?) DESC, {SUPERSEDED_LAST}, {TYPE_ORDER}, r.seq LIMIT ?",
             [key, key + "(%", "%" + key + "%", key, *fargs, limit],
         ).fetchall()
         for row in rows:

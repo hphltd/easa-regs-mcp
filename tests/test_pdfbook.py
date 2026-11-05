@@ -101,3 +101,27 @@ def test_pdf_books_index_and_search(raw, tmp_path, monkeypatch):
     hits = [h["ref"] for h in db.search(con, "special condition electric propulsion battery")]
     assert hits and hits[0] == "SC-22.2014-01"
     assert [h["ref"] for h in db.search(con, "CS 22.145")][0] == "CS 22.145"
+
+
+def test_cs22_amdt3_supersedes_sailplanes_copy(raw, tmp_path, monkeypatch):
+    """CS 22.xxx exists in CS22 (Amdt 3) and in the SAILPLANES EAR (Amdt 2): the newer book wins."""
+    import dataclasses
+
+    from easa_regs import server
+    path = tmp_path / "t.sqlite"
+    con = db.connect(path)
+    db.store_book(con, parse_pdf_book(raw / "CS22", CS_BOOK))
+    old = parse_pdf_book(raw / "CS22", CS_BOOK)
+    old = dataclasses.replace(old, code="SAILPLANES",
+                              rules=[dataclasses.replace(r, book="SAILPLANES") for r in old.rules])
+    db.store_book(con, old)
+    con.commit()
+    con.close()
+    monkeypatch.setenv("EASA_REGS_DB", str(path))
+    server._con.cache_clear()
+    rule = server.get_easa_rule("CS 22.143")
+    assert rule["found"] and rule["book"] == "CS22", rule
+    assert [v["book"] for v in rule["superseded_versions"]] == ["SAILPLANES"]
+    assert server.get_easa_rule("CS 22.143", book="SAILPLANES")["book"] == "SAILPLANES"
+    assert server.search_easa_rules("CS 22.143")["results"][0]["book"] == "CS22"
+    server._con.cache_clear()
