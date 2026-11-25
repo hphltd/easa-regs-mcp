@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import sqlite3
 import sys
 import time
@@ -29,7 +30,12 @@ Air Operations (ORO, CAT, NCO, NCC, SPO, SPA), SERA, Sailplanes (SFCL/SAO), Ball
 Continuing Airworthiness (Part-M/ML/145/CAMO), Initial Airworthiness (Part 21 incl. POA/DOA, Part 21 Light), \
 Information Security (Part-IS), AMC-20, CS-22 (sailplanes, Amendment 3), EASA Special Conditions / ESF / \
 deviations / Certification Memoranda for CS-22, the Basic Regulation, UAS (drones) and Aerodromes.
-Queries work best in English (the rules are in English); common German terms and abbreviations are understood.
+Also Czech national documents of the Úřad pro civilní letectví (ÚCL, Czech CAA): its directives (book UCL_SM, \
+type SM: CAA-TI, CAA-ST, CAA/S-SP, ÚCL-2xx) and advisory circulars (book UCL_PO, type PO: PO/ST, PO/TI to the \
+national airworthiness code L8/A, Part M/ML/145, PO-SL). These are in Czech: search them with Czech words \
+(e.g. "zkušební lety", "prodloužení platnosti OLZ") or their reference (e.g. "CAA-TI-010-n/99", "PO/ST-20-6").
+Queries for the EASA books work best in English (the rules are in English); common German terms and \
+abbreviations are understood.
 
 How to answer regulatory questions with these tools:
 1. Use search_easa_rules to find candidates (natural language or a rule reference such as "FCL.740").
@@ -39,17 +45,21 @@ How to answer regulatory questions with these tools:
 (presumption of compliance, not binding), GM = Guidance Material (explanatory only), CS = Certification Specification \
 (airworthiness code, binding once part of a product's certification basis), SC = Special Condition and \
 ESF = Equivalent Safety Finding (apply to the certification basis of the project/product they were issued for), \
-DEV = Deviation, CM = Certification Memorandum (EASA guidance, not binding).
-5. Check the related AMC/GM listed by get_easa_rule - they often contain the practical detail.
-6. If the rules do not answer the question, say so. National rules (e.g. LBA/DFS, NfL) and operator \
-manuals are NOT covered.
+DEV = Deviation, CM = Certification Memorandum (EASA guidance, not binding), \
+SM = Směrnice ÚCL (Czech CAA directive: its procedures and the requirements it applies under Czech law and the \
+EU rules it implements), PO = Poradní oběžník ÚCL (Czech CAA advisory circular, guidance, not binding). Where an \
+EU rule applies, it prevails over older national documents - say so if a ÚCL document predates the EU rule.
+5. Check the related AMC/GM listed by get_easa_rule - they often contain the practical detail. Long ÚCL documents \
+are split into parts '<ref> (část N)'; the document rule lists its parts.
+6. If the rules do not answer the question, say so. Other national rules (e.g. LBA/DFS, NfL, the Czech \
+Letecké předpisy L 1-L 19 and the AIP) and operator manuals are NOT covered.
 {DISCLAIMER}"""
 
 mcp = FastMCP("easa-regs", instructions=INSTRUCTIONS)
 READ_ONLY = ToolAnnotations(readOnlyHint=True, idempotentHint=True, openWorldHint=False)
 
 BookCode = Literal["AIRCREW", "AIROPS", "SERA", "SAILPLANES", "BALLOONS", "CONTAIR", "BASIC", "UAS", "AERODROMES",
-                   "INITAIR", "INFOSEC", "AMC20", "CS22", "SC22"]
+                   "INITAIR", "INFOSEC", "AMC20", "CS22", "SC22", "UCL_SM", "UCL_PO"]
 BOOK_HELP = ("AIRCREW (Part-FCL/MED/CC/ARA/ORA/DTO), AIROPS (ORO/CAT/NCO/NCC/SPO/SPA/IAM), SERA (rules of the air), "
              "SAILPLANES (Part-SFCL/SAO), BALLOONS (Part-BFCL/BOP), CONTAIR (Part-M/ML/145/CAMO/CAO), "
              "BASIC (Basic Regulation 2018/1139), UAS (drones), AERODROMES, "
@@ -57,8 +67,13 @@ BOOK_HELP = ("AIRCREW (Part-FCL/MED/CC/ARA/ORA/DTO), AIROPS (ORO/CAT/NCO/NCC/SPO
              "INFOSEC (Part-IS: information security, Regs 2023/203 and 2022/1645), "
              "AMC20 (AMC-20 general AMC for airworthiness of products, parts and appliances, e.g. AMC 20-29), "
              "CS22 (CS-22 sailplanes and powered sailplanes, Amendment 3), "
-             "SC22 (EASA Special Conditions, ESF, deviations and CMs for CS-22, e.g. SC-22.2014-01 electric propulsion)")
-ContentType = Literal["IR", "AMC", "GM", "CS", "SC", "ESF", "DEV", "CM"]
+             "SC22 (EASA Special Conditions, ESF, deviations and CMs for CS-22, e.g. SC-22.2014-01 electric propulsion), "
+             "UCL_SM (Směrnice ÚCL: Czech CAA directives, in Czech, e.g. CAA-TI-010-n/99 zkušební lety), "
+             "UCL_PO (Poradní oběžníky ÚCL: Czech CAA advisory circulars, in Czech, e.g. PO/ST-20-6 to L8/A)")
+ContentType = Literal["IR", "AMC", "GM", "CS", "SC", "ESF", "DEV", "CM", "SM", "PO"]
+UCL_DISCLAIMER = ("Neoficiální přepis dokumentu ÚCL (Úřad pro civilní letectví) pouze pro informaci, text vytažen "
+                  "z PDF. Závazné je pouze znění zveřejněné ÚCL na https://www.caa.gov.cz/ - před rozhodnutím "
+                  "ověřte aktuální verzi dokumentu.")
 
 
 @lru_cache(maxsize=1)
@@ -90,7 +105,8 @@ def search_easa_rules(
     query: Annotated[str, Field(description="Natural-language question, keywords or a rule reference, "
                                             "e.g. 'SEP class rating revalidation', 'FCL.740', 'VFR minima class G'")],
     book: Annotated[BookCode | None, Field(description="Restrict to one book: " + BOOK_HELP)] = None,
-    content_type: Annotated[ContentType | None, Field(description="Restrict to IR, AMC, GM or CS")] = None,
+    content_type: Annotated[ContentType | None, Field(description="Restrict to IR, AMC, GM or CS "
+                                                                  "(SM / PO for ÚCL directives / advisory circulars)")] = None,
     limit: Annotated[int, Field(ge=1, le=25)] = 8,
 ) -> dict:
     """Full-text search across EASA Easy Access Rules. Returns ranked rules with reference, type,
@@ -102,6 +118,12 @@ def search_easa_rules(
         "note": "Snippets are partial. Read the full rule with get_easa_rule before answering." if hits
         else "No match. Try other wording, a rule reference, or drop the book/type filter.",
     }
+
+
+def _document_url(text: str) -> str:
+    """PDF-based rules start with 'Document: <url>' / 'Dokument: <url>' in their first lines."""
+    m = re.search(r"^(?:Document|Dokument): (\S+)", text[:2000], re.M)
+    return m.group(1) if m else ""
 
 
 @mcp.tool(title="Get EASA rule", annotations=READ_ONLY, structured_output=False)
@@ -152,8 +174,8 @@ def get_easa_rule(
         "erules_id": row["erules_id"],
         "text": text[:max_chars] + ("\n[... truncated - raise max_chars]" if truncated else ""),
         "citation": db.citation(con, row),
-        "source_url": (db.book_info(con, row["book"]) or {}).get("landing_page", ""),
-        "disclaimer": DISCLAIMER,
+        "source_url": _document_url(text) or (db.book_info(con, row["book"]) or {}).get("landing_page", ""),
+        "disclaimer": UCL_DISCLAIMER if row["book"] in db.UCL_BOOKS else DISCLAIMER,
     }
     if superseded:
         out["superseded_versions"] = [{"ref": r["ref"], "book": r["book"], "title": r["title"]} for r in superseded]
@@ -201,7 +223,8 @@ def list_easa_sources() -> dict:
     con = _con()
     rows = [dict(r) for r in con.execute("SELECT code, title, pub_time, landing_page, n_rules, indexed_at FROM books")]
     return {"books": rows, "disclaimer": DISCLAIMER, "attribution": ATTRIBUTION,
-            "not_covered": "National rules (LBA, DFS/AIP, NfL), ICAO documents, operator manuals, "
+            "not_covered": "National rules other than the ÚCL directives and advisory circulars (LBA, DFS/AIP, NfL, "
+                           "Czech Letecké předpisy L 1-L 19, AIP ČR), ICAO documents, operator manuals, "
                            "Basic Regulation (EU) 2018/1139 unless reproduced in a book."}
 
 

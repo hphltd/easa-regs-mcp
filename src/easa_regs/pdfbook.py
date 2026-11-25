@@ -30,7 +30,7 @@ TYPE_FULL = {
     "CM": "Certification Memorandum",
 }
 
-_PAGE_LINE = re.compile(r"^(?:page\s*)?\d+\s*(?:of|/)\s*\d+$|^page\s+\d+$|^\d{1,4}$", re.I)
+_PAGE_LINE = re.compile(r"^(?:(?:page|strana)\s*)?\d+\s*(?:of|z|/)\s*\d+$|^(?:page|strana)\s+\d+$|^\d{1,4}$", re.I)
 # 'CS 22.143 General', 'AMC 22.629 Flutter', 'CS 22.335(a) ...', 'GM 22.1 ...'
 _CS_HEADING = re.compile(r"^(?P<ref>(?:CS|AMC|GM)\s?(?P<num>\d{2}\.\d+[A-Z]?)(?:\s?\([a-z0-9]+\))*)(?:\s+(?P<head>.*))?$")
 _APPENDIX = re.compile(r"^(?P<ref>APPENDIX\s+[A-Z0-9]{1,3})\b[\s:–—-]*(?P<head>.*)$")
@@ -44,7 +44,7 @@ def extract_pages(path: Path) -> list[str]:
     return extract_text(str(path)).split("\f")
 
 
-_PAGE_REF = re.compile(r"\bpage\s*\d+(?:\s*(?:of|/)\s*\d+)?\b", re.I)
+_PAGE_REF = re.compile(r"\b(?:page|strana)\s*:?\s*\d+(?:\s*(?:of|z|/)\s*\d+)?\b", re.I)
 
 
 def _running_key(line: str) -> str:

@@ -20,6 +20,8 @@ from .sources import BOOKS
 
 def _downloaded(raw: Path, code: str) -> bool:
     book = BOOKS[code]
+    if book.kind == "ucl":
+        return (raw / code / "index.json").exists()
     return (raw / code).is_dir() if book.kind == "pdf" else (raw / f"{code}.zip").exists()
 
 
@@ -41,7 +43,10 @@ def main(argv: list[str] | None = None) -> None:
     for code in codes:
         t0 = time.time()
         try:
-            if BOOKS[code].kind == "pdf":
+            if BOOKS[code].kind == "ucl":
+                from .ucl import parse_ucl_book  # needs pdfminer.six (dev/build extra)
+                parsed = parse_ucl_book(args.raw / code, BOOKS[code])
+            elif BOOKS[code].kind == "pdf":
                 from .pdfbook import parse_pdf_book  # needs pdfminer.six (dev/build extra)
                 parsed = parse_pdf_book(args.raw / code, BOOKS[code])
             else:

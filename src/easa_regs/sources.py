@@ -40,8 +40,11 @@ class Book:
     xml_download_id: int
     landing_page: str
     kind: str = "xml"    # xml = EAR package (parse.py) | pdf = list of PDF documents (pdfbook.py)
+    #                      ucl = PDFs linked from Czech CAA (ÚCL) listing pages (ucl.py)
     docs: tuple[PdfDoc, ...] = ()
     split: str = "doc"   # pdf books: 'doc' = one rule per document | 'cs' = one rule per CS/AMC paragraph
+    listing: tuple[str, ...] = ()   # ucl books: pages whose PDF links are the documents
+    content_type: str = ""          # ucl books: content type of every document (SM | PO)
 
     @property
     def xml_url(self) -> str:
@@ -49,6 +52,7 @@ class Book:
 
 
 _CONSULT = "https://www.easa.europa.eu/en/document-library/product-certification-consultations/"
+_UCL = "https://www.caa.gov.cz/dokumenty/predpisy/"
 
 
 BOOKS: dict[str, Book] = {
@@ -190,6 +194,26 @@ BOOKS: dict[str, Book] = {
                        "Issue 4", ""),
             ),
         ),
+        # Czech national documents of the Úřad pro civilní letectví (ÚCL). The document list is read from the
+        # listing page on every fetch (ucl.py), so nothing has to be maintained here.
+        Book(
+            code="UCL_SM",
+            title="Směrnice ÚCL - directives of the Czech Civil Aviation Authority (CAA-TI, CAA-ST, CAA/S-SP, ÚCL-2xx)",
+            xml_download_id=0,
+            landing_page=_UCL + "smernice-ucl/",
+            kind="ucl",
+            listing=(_UCL + "smernice-ucl/",),
+            content_type="SM",
+        ),
+        Book(
+            code="UCL_PO",
+            title="Poradní oběžníky ÚCL - advisory circulars of the Czech Civil Aviation Authority (L8/A, Part M/ML/145)",
+            xml_download_id=0,
+            landing_page=_UCL + "poradni-obezniky/",
+            kind="ucl",
+            listing=(_UCL + "poradni-obezniky/",),
+            content_type="PO",
+        ),
     ]
 }
 
@@ -210,4 +234,7 @@ DISCLAIMER = (
     "before relying on it for operational or compliance decisions."
 )
 
-ATTRIBUTION = "Source: EASA Easy Access Rules (eRules XML), (c) European Union Aviation Safety Agency."
+ATTRIBUTION = ("Source: EASA Easy Access Rules (eRules XML), (c) European Union Aviation Safety Agency. "
+               "Books UCL_SM and UCL_PO: directives and advisory circulars of the Úřad pro civilní letectví "
+               "(Czech CAA), https://www.caa.gov.cz/dokumenty/predpisy/ - only the documents published by ÚCL "
+               "are authentic.")

@@ -84,7 +84,9 @@ SUPERSEDED_LAST = "(r.book IN (" + ",".join(f"'{b}'" for b in SUPERSEDES.values(
 TYPE_ORDER = "CASE content_type WHEN 'IR' THEN 0 WHEN 'AMC' THEN 1 WHEN 'GM' THEN 2 WHEN 'CS' THEN 3 ELSE 4 END"
 REF_TOKEN = re.compile(
     r"\b(?:(?:AMC|GM|CS)\d*\s+)?(?:[A-Z]{2,}[A-Z0-9]*|\d{2,3}\.[A-Z]{1,2})(?:\.[A-Z0-9]+)+(?:\([a-z0-9]+\))*"
-    r"|\b(?:AMC|GM|CS)\d*\s+\d{2}[-.]\d+[A-Z]?\b(?:\([a-z0-9]+\))*", re.I)
+    r"|\b(?:AMC|GM|CS)\d*\s+\d{2}[-.]\d+[A-Z]?\b(?:\([a-z0-9]+\))*"
+    # Czech CAA (ÚCL) documents: 'CAA-TI-010-n/99', 'CAA/S-SP-028-4/2020', 'ÚCL-237', 'PO/ST-20-6'
+    r"|(?<![\w/])(?:CAA[-/]|ÚCL-|UCL-|PO[-/](?:ST|TI|SL))[\w/.()-]*\d[\w/.()-]*", re.I)
 
 
 def db_path() -> Path:
@@ -143,6 +145,10 @@ STOPWORDS = {
     "voraussetzungen", "anforderungen", "regeln", "regel", "was", "wie", "wann", "welche", "welcher", "ich",
     "muss", "brauche", "darf", "für", "fuer", "mit", "bei", "von", "und", "oder", "der", "die", "das", "ein",
     "eine", "im", "in", "zu", "nach", "laut", "gilt", "gelten",
+    # Czech filler words (ÚCL directives and advisory circulars are in Czech)
+    "jak", "jaké", "jaká", "jaký", "jsou", "je", "co", "kdo", "kdy", "který", "která", "které", "se", "si", "na",
+    "pro", "podle", "dle", "do", "od", "ze", "za", "po", "při", "pri", "nebo", "musí", "musi", "lze", "mám", "mam",
+    "potřebuji", "potrebuji", "požadavky", "pozadavky",
 }
 
 
@@ -233,10 +239,18 @@ def _groups(q: str) -> list[list[list[str]]]:
     return groups
 
 
-def _fts_query(q: str, mode: str = "AND") -> str:
+def _czech_prefix(t: str) -> str:
+    """Czech is inflected ('zkušební lety', 'zkušebních letů'): match on the stem, not the whole word."""
+    return t[:max(3, len(t) - 2)] if len(t) >= 4 else t
+
+
+def _fts_query(q: str, mode: str = "AND", czech: bool = False) -> str:
     parts = []
     for t in _terms(q):
-        alts = ['"' + t.replace('"', "") + '"' + ("*" if len(t) >= 4 and not any(c in t for c in ".()") else "")]
+        plain = not any(c in t for c in ".()")
+        if czech and t.isalpha():
+            t = _czech_prefix(t)
+        alts = ['"' + t.replace('"', "") + '"' + ("*" if (len(t) >= 4 or czech and len(t) >= 3) and plain else "")]
         exp = _expansion(t)
         if exp:
             alts.append('"' + exp.replace('"', "") + '"')
@@ -279,9 +293,17 @@ NICHE_BOOK_HINTS: dict[str, str] = {
     "SC22": r"special conditions?|SC[- ][\w.]+|equivalent safety|ESF|DEV-[\w.]+|certification memorand\w*|"
             r"CM-[\w-]+|certification basis|electric propulsion|sustainer|powered sailplanes?",
 }
+# Czech CAA (ÚCL) books: asked for by name, by document code, by the national airworthiness code L8/A, or in Czech
+_UCL_HINT = (r"ÚCL|UCL|CAA[-/][\w/.-]+|Czech|česk\w*|cesk\w*|národní\w*|narodni\w*|L\s?8/A|L\s?6/I+|"
+             r"OLZ|ZOLZ|LR ČR|leteck\w* rejstřík\w*")
+NICHE_BOOK_HINTS["UCL_SM"] = _UCL_HINT + r"|směrnic\w*|smernic\w*"
+NICHE_BOOK_HINTS["UCL_PO"] = _UCL_HINT + r"|poradní\w*|poradni\w*|oběžník\w*|obeznik\w*|PO[-/](?:ST|TI|SL)[\w/.()-]*"
+UCL_BOOKS = {"UCL_SM", "UCL_PO"}
+# letters that only Czech uses: such a query is about the Czech documents (the EASA books are in English)
+CZECH_LETTERS = re.compile(r"[ěščřžůťďňĚŠČŘŽŮŤĎŇ]")
 NICHE_BOOKS = set(NICHE_BOOK_HINTS)
-_NICHE_RES = {b: re.compile(rf"\b(?:{h})\b", re.I) for b, h in NICHE_BOOK_HINTS.items()}
-NICHE_HINTS = re.compile(r"\b(?:" + "|".join(NICHE_BOOK_HINTS.values()) + r")\b", re.I)
+_NICHE_RES = {b: re.compile(rf"(?<!\w)(?:{h})(?!\w)", re.I) for b, h in NICHE_BOOK_HINTS.items()}
+NICHE_HINTS = re.compile(r"(?<!\w)(?:" + "|".join(NICHE_BOOK_HINTS.values()) + r")(?!\w)", re.I)
 
 
 def drop_superseded(rows: list) -> list:
@@ -294,6 +316,8 @@ def drop_superseded(rows: list) -> list:
 def niche_books_for(query: str, book: str | None = None) -> set[str]:
     """The niche books a query is about (by its terms, or because it is restricted to that book)."""
     books = {b for b, rx in _NICHE_RES.items() if rx.search(query)}
+    if CZECH_LETTERS.search(query):
+        books |= UCL_BOOKS
     if (book or "").upper() in NICHE_BOOKS:
         books.add(book.upper())
     return books
@@ -359,7 +383,8 @@ def search(con, query: str, book=None, content_type=None, limit: int = 8) -> lis
     authority_query = bool(AUTHORITY_HINTS.search(query))
     specific_query = bool(SPECIFIC_HINTS.search(query))
     niche_books = niche_books_for(query, book)
-    fq = _fts_query(query, "OR")
+    czech = bool(CZECH_LETTERS.search(query)) or (book or "").upper() in UCL_BOOKS
+    fq = _fts_query(query, "OR", czech=czech)
     if fq and len(results) < limit:
         rows = con.execute(
             "SELECT r.*, snippet(rules_fts, 4, '**', '**', ' ... ', 24) AS snip, "

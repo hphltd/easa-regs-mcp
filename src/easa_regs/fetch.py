@@ -2,6 +2,7 @@
 
 Usage:  python -m easa_regs.fetch [BOOK ...]      (default: all books) -> data/raw/<CODE>.zip
                                                   PDF books -> data/raw/<CODE>/<download id>.pdf
+                                                  ÚCL books -> data/raw/<CODE>/index.json + PDFs
         python -m easa_regs.fetch --index          prebuilt SQLite index from the latest GitHub release
 Standard library only, so it runs before any dependency is installed.
 """
@@ -26,7 +27,7 @@ def _download(url: str, target: Path, label: str, accept: tuple[str, ...]) -> Pa
     with urllib.request.urlopen(req, timeout=300) as resp, open(tmp, "wb") as fh:
         ctype = resp.headers.get("content-type", "")
         if not any(a in ctype for a in accept):
-            raise RuntimeError(f"[{label}] unexpected content-type {ctype!r} - EASA page layout changed?")
+            raise RuntimeError(f"[{label}] unexpected content-type {ctype!r} - page layout changed?")
         total = 0
         while chunk := resp.read(1 << 20):
             fh.write(chunk)
@@ -38,6 +39,9 @@ def _download(url: str, target: Path, label: str, accept: tuple[str, ...]) -> Pa
 
 def fetch(code: str, raw_dir: Path = RAW_DIR) -> Path:
     book = BOOKS[code]
+    if book.kind == "ucl":
+        from .ucl import fetch_book
+        return fetch_book(book, raw_dir, _download)
     if book.kind == "pdf":
         folder = raw_dir / code
         for doc in book.docs:
