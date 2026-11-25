@@ -58,14 +58,12 @@ amendment in force; `get_easa_rule("L 8/A")` returns an overview with all chapte
 
 ## Install
 
-**Website with one-click setup:** https://easa-regs-site.vercel.app/
-
 | Where | How |
 |---|---|
-| **Claude (web, desktop, iOS, Android)** | *Customize › Connectors › + › Add custom connector*, paste `https://easa-regs-mcp-murex.vercel.app/mcp`. Works on the Free plan too. |
-| **Claude Desktop, local** | Download [`easa-regs.mcpb`](https://github.com/muchsneaks/easa-regs-mcp/releases/latest/download/easa-regs.mcpb), double-click, *Install*. No Python needed. |
-| **Claude Code** | `claude mcp add easa-regs -- uvx --from git+https://github.com/muchsneaks/easa-regs-mcp easa-regs-mcp` |
-| **Any MCP client** | `{"command": "uvx", "args": ["--from", "git+https://github.com/muchsneaks/easa-regs-mcp", "easa-regs-mcp"]}` |
+| **Claude (web, desktop, iOS, Android)** | *Customize › Connectors › + › Add custom connector* ("EASA Part 21 HPH"), paste `https://easa-regs-mcp-murex.vercel.app/mcp`. Works on the Free plan too. |
+| **Claude Desktop, local** | Download [`easa-regs.mcpb`](https://github.com/hphltd/easa-regs-mcp/releases/latest/download/easa-regs.mcpb), double-click, *Install*. No Python needed. |
+| **Claude Code** | `claude mcp add easa-regs -- uvx --from git+https://github.com/hphltd/easa-regs-mcp easa-regs-mcp` |
+| **Any MCP client** | `{"command": "uvx", "args": ["--from", "git+https://github.com/hphltd/easa-regs-mcp", "easa-regs-mcp"]}` |
 
 The first start downloads the prebuilt index (~33 MB) from the latest release and refreshes it weekly.
 
@@ -89,7 +87,7 @@ CS-22 and the CS-22 Special Conditions) uses `EASA_REGS_REPO=hphltd/easa-regs-mc
 ## Develop / build the index yourself
 
 ```bash
-git clone https://github.com/muchsneaks/easa-regs-mcp && cd easa-regs-mcp
+git clone https://github.com/hphltd/easa-regs-mcp && cd easa-regs-mcp
 ./setup.sh      # venv, install, download EASA XML, build index, run tests, optional Claude Desktop registration
 ```
 

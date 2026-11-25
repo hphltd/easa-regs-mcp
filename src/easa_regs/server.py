@@ -250,7 +250,7 @@ def disclaimer() -> str:
     return f"{DISCLAIMER}\n{ATTRIBUTION}"
 
 
-LANDING_URL = "https://easa-regs-site.vercel.app/"
+LANDING_URL = "https://github.com/hphltd/easa-regs-mcp#install"
 
 
 @mcp.custom_route("/health", methods=["GET"])
@@ -266,9 +266,9 @@ async def root(request):  # noqa: ANN001
     from starlette.responses import HTMLResponse
 
     return HTMLResponse(
-        "<!doctype html><meta charset=utf-8><title>easa-regs MCP</title>"
+        "<!doctype html><meta charset=utf-8><title>EASA Part 21 HPH - MCP</title>"
         "<body style='font-family:system-ui;max-width:640px;margin:15vh auto;padding:0 20px;line-height:1.6'>"
-        "<h1>easa-regs MCP server</h1><p>This is the MCP endpoint for Claude and other MCP clients: "
+        "<h1>EASA Part 21 HPH - MCP server</h1><p>This is the MCP endpoint for Claude and other MCP clients: "
         "<code>/mcp</code>. Add this server's URL ending in <code>/mcp</code> as a custom connector in Claude.</p>"
         f"<p><a href='{LANDING_URL}'>Setup guide</a></p></body>"
     )

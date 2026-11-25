@@ -61,11 +61,11 @@ def main() -> None:
             "Every answer can quote the original text with rule reference, legal type (IR/AMC/GM) and revision. "
             "The index updates itself weekly. Unofficial and not legally binding."
         ),
-        "author": {"name": "easa-regs", "url": "https://github.com/muchsneaks/easa-regs-mcp"},
-        "homepage": "https://easa-regs-site.vercel.app/",
-        "documentation": "https://github.com/muchsneaks/easa-regs-mcp#readme",
-        "support": "https://github.com/muchsneaks/easa-regs-mcp/issues",
-        "repository": {"type": "git", "url": "https://github.com/muchsneaks/easa-regs-mcp"},
+        "author": {"name": "HPH spol. s r.o.", "url": "https://github.com/hphltd/easa-regs-mcp"},
+        "homepage": "https://github.com/hphltd/easa-regs-mcp#readme",
+        "documentation": "https://github.com/hphltd/easa-regs-mcp#readme",
+        "support": "https://github.com/hphltd/easa-regs-mcp/issues",
+        "repository": {"type": "git", "url": "https://github.com/hphltd/easa-regs-mcp"},
         "icon": "icon.png",
         "server": {
             "type": "uv",

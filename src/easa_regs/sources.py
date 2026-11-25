@@ -248,7 +248,7 @@ SUPERSEDES: dict[str, tuple[str, ...]] = {"CS22": ("SAILPLANES", "JAR22")}
 
 # Forks that publish their own index releases set EASA_REGS_REPO=<owner>/<repo> on their host
 # (or EASA_REGS_INDEX_URL to point at any other copy of the prebuilt index).
-GITHUB_REPO = os.environ.get("EASA_REGS_REPO", "muchsneaks/easa-regs-mcp")
+GITHUB_REPO = os.environ.get("EASA_REGS_REPO", "hphltd/easa-regs-mcp")
 INDEX_URL = os.environ.get(
     "EASA_REGS_INDEX_URL", f"https://github.com/{GITHUB_REPO}/releases/latest/download/easa_regs.sqlite")
 

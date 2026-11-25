@@ -16,7 +16,7 @@ from pathlib import Path
 from .sources import BOOKS, INDEX_URL
 
 RAW_DIR = Path(__file__).resolve().parents[2] / "data" / "raw"
-UA = "Mozilla/5.0 (easa-regs-mcp; +https://github.com/muchsneaks/easa-regs-mcp) Python-urllib"
+UA = "Mozilla/5.0 (easa-regs-mcp; +https://github.com/hphltd/easa-regs-mcp) Python-urllib"
 
 
 def _download(url: str, target: Path, label: str, accept: tuple[str, ...]) -> Path:
