@@ -27,8 +27,10 @@ Built by a CPL(A)/IR flight instructor who got tired of scrolling 1,500-page PDF
 | `AMC20` | AMC-20: general AMC for airworthiness of products, parts and appliances (Amendment 23) |
 | `CS22` | CS-22 Sailplanes and Powered Sailplanes, Amendment 3 (from the PDF; the Easy Access Rules stop at Amendment 2) |
 | `SC22` | Final EASA Special Conditions, Equivalent Safety Findings, Deviations and Certification Memoranda tagged CS-22 (PDF) |
+| `JAR22` | JAR-22 Sailplanes and Powered Sailplanes, Amendment 6 (JAA, 2001; superseded by CS-22). **Only in self-built indexes**: there is no official source to download it from, so the PDF must be supplied as `data/raw/JAR22/jar22.pdf` |
 | `UCL_SM` | Czech national: *Směrnice ÚCL*, directives of the Czech Civil Aviation Authority (CAA-TI, CAA-ST, CAA/S-SP, ÚCL-2xx), in Czech (PDF) |
 | `UCL_PO` | Czech national: *Poradní oběžníky ÚCL*, advisory circulars (PO/ST, PO/TI to L8/A, Part M/ML/145, PO-SL), in Czech (PDF) |
+| `CZ_L` | Czech national: *Letecké předpisy řady L* (L 1-L 19, L 8/A, L 14H, L 4444, L 7030, L 8168, L 8400, L Frazeologie, ...), one rule per chapter, in Czech (PDF from LIS ŘLP ČR) |
 
 Every rule keeps its stable EASA `ERulesId`, type (**IR** binding / **AMC** / **GM** / **CS**), location in the
 regulation, amending regulation, applicability date and its linked AMC/GM. Tables and list structure are preserved.
@@ -39,6 +41,11 @@ The ÚCL documents (type **SM** directive / **PO** advisory circular) are read f
 documents appear without code changes. Search them in Czech (`zkušební lety`, `prodloužení platnosti OLZ`) or by
 reference (`CAA-TI-010-n/99`, `PO/ST-20-6`). Long documents are split into parts (`<ref> (část N)`) at their
 headings. Scanned PDFs without a text layer are listed with their description and link only.
+
+The Czech L series (type **L**) is read from the data files behind
+[aim.rlp.cz/predpisy](https://aim.rlp.cz/predpisy/predpisy/index.htm), the free public copy of the Letecká
+informační služba (LIS) of ŘLP ČR. Every chapter is one rule (`L 8 Část IIIB Hlava 2`, `L 2 Hlava 4`) carrying the
+amendment in force; `get_easa_rule("L 8/A")` returns an overview with all chapters of the regulation.
 
 ## Tools
 
@@ -108,14 +115,18 @@ If EASA changes a download link, update the ID in `sources.py` (the number in
 PDF-only books (`CS22`, `SC22`) list their documents in `sources.py` and are split by `pdfbook.py`
 (needs `pdfminer.six`, part of the `dev` extra). The ÚCL books (`UCL_SM`, `UCL_PO`) take their document list from
 the ÚCL listing pages (`ucl.py`); if ÚCL changes its page layout, `parse_listing` is the place to adapt.
+The L series (`CZ_L`) comes from the LIS `data.js` files (`lis.py`). JAR-22 (`JAR22`) is parsed by `jar.py` from the
+JAA two-column PDF (requirements and inline AMC are told apart by font); `easa-regs-fetch` never downloads it and
+`easa-regs-build` includes it only when `data/raw/JAR22/jar22.pdf` exists, so the published release index does not
+contain it.
 
 ## Limitations
 
 - Unofficial and **not legally binding**. Only the texts in the Official Journal of the EU are authentic.
   Always verify before operational or compliance decisions.
-- National rules other than the ÚCL directives and advisory circulars (e.g. LBA, NfL, AIP, the Czech Letecké
-  předpisy L 1-L 19), ICAO documents and operator manuals are not included. The ÚCL texts are extracted from PDF;
-  only the documents published by ÚCL are authentic.
+- National rules other than the ÚCL directives and advisory circulars and the Czech L series (e.g. LBA, NfL,
+  AIP, Czech laws and decrees), ICAO documents in English and operator manuals are not included. The Czech texts
+  are extracted from PDF; only the documents published by ÚCL and the printed L-series text are authentic.
 - The smallest unit is an EASA "topic" (one rule with all its paragraphs).
 - Future-applicable versions are not yet separated from current ones.
 

@@ -28,12 +28,16 @@ INSTRUCTIONS = f"""\
 Search and quote the EASA Easy Access Rules (EU aviation regulations): Aircrew (Part-FCL, MED, ARA/ORA, DTO), \
 Air Operations (ORO, CAT, NCO, NCC, SPO, SPA), SERA, Sailplanes (SFCL/SAO), Balloons (BFCL/BOP), \
 Continuing Airworthiness (Part-M/ML/145/CAMO), Initial Airworthiness (Part 21 incl. POA/DOA, Part 21 Light), \
-Information Security (Part-IS), AMC-20, CS-22 (sailplanes, Amendment 3), EASA Special Conditions / ESF / \
+Information Security (Part-IS), AMC-20, CS-22 (sailplanes, Amendment 3), JAR-22 (Amendment 6, 2001, where the \
+index includes it), EASA Special Conditions / ESF / \
 deviations / Certification Memoranda for CS-22, the Basic Regulation, UAS (drones) and Aerodromes.
 Also Czech national documents of the Úřad pro civilní letectví (ÚCL, Czech CAA): its directives (book UCL_SM, \
 type SM: CAA-TI, CAA-ST, CAA/S-SP, ÚCL-2xx) and advisory circulars (book UCL_PO, type PO: PO/ST, PO/TI to the \
-national airworthiness code L8/A, Part M/ML/145, PO-SL). These are in Czech: search them with Czech words \
-(e.g. "zkušební lety", "prodloužení platnosti OLZ") or their reference (e.g. "CAA-TI-010-n/99", "PO/ST-20-6").
+national airworthiness code L8/A, Part M/ML/145, PO-SL), and the Czech aviation regulations of the L series \
+(book CZ_L, type L: L 1-L 19, L 8/A, L 14H, L 4444, L 8168, L Frazeologie - mostly the ICAO Annexes and Docs in \
+Czech, one rule per chapter, e.g. "L 8 Část IIIB Hlava 2", "L 2 Hlava 3"; get_easa_rule("L 8/A") lists the \
+chapters). These are in Czech: search them with Czech words (e.g. "zkušební lety", "prodloužení platnosti OLZ", \
+"minima VMC") or their reference (e.g. "CAA-TI-010-n/99", "PO/ST-20-6", "L 2 Hlava 4").
 Queries for the EASA books work best in English (the rules are in English); common German terms and \
 abbreviations are understood.
 
@@ -46,20 +50,25 @@ How to answer regulatory questions with these tools:
 (airworthiness code, binding once part of a product's certification basis), SC = Special Condition and \
 ESF = Equivalent Safety Finding (apply to the certification basis of the project/product they were issued for), \
 DEV = Deviation, CM = Certification Memorandum (EASA guidance, not binding), \
+JAR = JAR-22 requirement (superseded by CS-22 in 2003; still binding where a type's certification basis \
+names JAR-22 - compare with the CS 22 paragraph of the same number), \
 SM = Směrnice ÚCL (Czech CAA directive: its procedures and the requirements it applies under Czech law and the \
 EU rules it implements), PO = Poradní oběžník ÚCL (Czech CAA advisory circular, guidance, not binding). Where an \
-EU rule applies, it prevails over older national documents - say so if a ÚCL document predates the EU rule.
+EU rule applies, it prevails over older national documents - say so if a ÚCL document predates the EU rule. \
+L = Letecký předpis řady L (Czech national regulation under Act 49/1997 Coll.; where EU rules such as SERA, \
+Part-FCL or Part 21 apply, the L regulation applies only to what they leave to national law, e.g. Annex I \
+aircraft under L 8/A).
 5. Check the related AMC/GM listed by get_easa_rule - they often contain the practical detail. Long ÚCL documents \
 are split into parts '<ref> (část N)'; the document rule lists its parts.
-6. If the rules do not answer the question, say so. Other national rules (e.g. LBA/DFS, NfL, the Czech \
-Letecké předpisy L 1-L 19 and the AIP) and operator manuals are NOT covered.
+6. If the rules do not answer the question, say so. Other national rules (e.g. LBA/DFS, NfL, the AIP ČR, \
+Czech laws and decrees) and operator manuals are NOT covered.
 {DISCLAIMER}"""
 
 mcp = FastMCP("easa-regs", instructions=INSTRUCTIONS)
 READ_ONLY = ToolAnnotations(readOnlyHint=True, idempotentHint=True, openWorldHint=False)
 
 BookCode = Literal["AIRCREW", "AIROPS", "SERA", "SAILPLANES", "BALLOONS", "CONTAIR", "BASIC", "UAS", "AERODROMES",
-                   "INITAIR", "INFOSEC", "AMC20", "CS22", "SC22", "UCL_SM", "UCL_PO"]
+                   "INITAIR", "INFOSEC", "AMC20", "CS22", "SC22", "JAR22", "UCL_SM", "UCL_PO", "CZ_L"]
 BOOK_HELP = ("AIRCREW (Part-FCL/MED/CC/ARA/ORA/DTO), AIROPS (ORO/CAT/NCO/NCC/SPO/SPA/IAM), SERA (rules of the air), "
              "SAILPLANES (Part-SFCL/SAO), BALLOONS (Part-BFCL/BOP), CONTAIR (Part-M/ML/145/CAMO/CAO), "
              "BASIC (Basic Regulation 2018/1139), UAS (drones), AERODROMES, "
@@ -68,12 +77,17 @@ BOOK_HELP = ("AIRCREW (Part-FCL/MED/CC/ARA/ORA/DTO), AIROPS (ORO/CAT/NCO/NCC/SPO
              "AMC20 (AMC-20 general AMC for airworthiness of products, parts and appliances, e.g. AMC 20-29), "
              "CS22 (CS-22 sailplanes and powered sailplanes, Amendment 3), "
              "SC22 (EASA Special Conditions, ESF, deviations and CMs for CS-22, e.g. SC-22.2014-01 electric propulsion), "
+             "JAR22 (JAR-22 sailplanes and powered sailplanes, Amendment 6 2001, superseded by CS-22, e.g. JAR 22.143), "
              "UCL_SM (Směrnice ÚCL: Czech CAA directives, in Czech, e.g. CAA-TI-010-n/99 zkušební lety), "
-             "UCL_PO (Poradní oběžníky ÚCL: Czech CAA advisory circulars, in Czech, e.g. PO/ST-20-6 to L8/A)")
-ContentType = Literal["IR", "AMC", "GM", "CS", "SC", "ESF", "DEV", "CM", "SM", "PO"]
+             "UCL_PO (Poradní oběžníky ÚCL: Czech CAA advisory circulars, in Czech, e.g. PO/ST-20-6 to L8/A), "
+             "CZ_L (Letecké předpisy řady L: Czech aviation regulations L 1-L 19, L 8/A, L 4444, L 8168, in Czech)")
+ContentType = Literal["IR", "AMC", "GM", "CS", "SC", "ESF", "DEV", "CM", "JAR", "SM", "PO", "L"]
 UCL_DISCLAIMER = ("Neoficiální přepis dokumentu ÚCL (Úřad pro civilní letectví) pouze pro informaci, text vytažen "
                   "z PDF. Závazné je pouze znění zveřejněné ÚCL na https://www.caa.gov.cz/ - před rozhodnutím "
                   "ověřte aktuální verzi dokumentu.")
+L_DISCLAIMER = ("Neoficiální přepis leteckého předpisu řady L pouze pro informaci, text vytažen z PDF zveřejněného "
+                "Leteckou informační službou ŘLP ČR (https://aim.rlp.cz/predpisy/). Autentické je pouze znění "
+                "zveřejněné v tištěné podobě - před rozhodnutím ověřte platné znění a změny.")
 
 
 @lru_cache(maxsize=1)
@@ -106,7 +120,8 @@ def search_easa_rules(
                                             "e.g. 'SEP class rating revalidation', 'FCL.740', 'VFR minima class G'")],
     book: Annotated[BookCode | None, Field(description="Restrict to one book: " + BOOK_HELP)] = None,
     content_type: Annotated[ContentType | None, Field(description="Restrict to IR, AMC, GM or CS "
-                                                                  "(SM / PO for ÚCL directives / advisory circulars)")] = None,
+                                                                  "(SM / PO for ÚCL directives / advisory circulars, "
+                                                                  "L for the Czech L series)")] = None,
     limit: Annotated[int, Field(ge=1, le=25)] = 8,
 ) -> dict:
     """Full-text search across EASA Easy Access Rules. Returns ranked rules with reference, type,
@@ -175,7 +190,8 @@ def get_easa_rule(
         "text": text[:max_chars] + ("\n[... truncated - raise max_chars]" if truncated else ""),
         "citation": db.citation(con, row),
         "source_url": _document_url(text) or (db.book_info(con, row["book"]) or {}).get("landing_page", ""),
-        "disclaimer": UCL_DISCLAIMER if row["book"] in db.UCL_BOOKS else DISCLAIMER,
+        "disclaimer": UCL_DISCLAIMER if row["book"] in db.UCL_BOOKS else L_DISCLAIMER if row["book"] == "CZ_L"
+        else DISCLAIMER,
     }
     if superseded:
         out["superseded_versions"] = [{"ref": r["ref"], "book": r["book"], "title": r["title"]} for r in superseded]
@@ -223,8 +239,9 @@ def list_easa_sources() -> dict:
     con = _con()
     rows = [dict(r) for r in con.execute("SELECT code, title, pub_time, landing_page, n_rules, indexed_at FROM books")]
     return {"books": rows, "disclaimer": DISCLAIMER, "attribution": ATTRIBUTION,
-            "not_covered": "National rules other than the ÚCL directives and advisory circulars (LBA, DFS/AIP, NfL, "
-                           "Czech Letecké předpisy L 1-L 19, AIP ČR), ICAO documents, operator manuals, "
+            "not_covered": "National rules other than the ÚCL directives and advisory circulars and the Czech L "
+                           "series (LBA, DFS/AIP, NfL, AIP ČR, Czech laws and decrees), ICAO documents in English, "
+                           "operator manuals, "
                            "Basic Regulation (EU) 2018/1139 unless reproduced in a book."}
 
 

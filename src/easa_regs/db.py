@@ -80,13 +80,17 @@ CREATE VIRTUAL TABLE IF NOT EXISTS rules_fts USING fts5(
 """
 
 # a book superseded by another one (SAILPLANES' CS-22 Amdt 2 vs CS22 Amdt 3) sorts after it
-SUPERSEDED_LAST = "(r.book IN (" + ",".join(f"'{b}'" for b in SUPERSEDES.values()) + "))" if SUPERSEDES else "0"
+_SUPERSEDED = sorted({b for olds in SUPERSEDES.values() for b in olds})
+SUPERSEDED_LAST = "(r.book IN (" + ",".join(f"'{b}'" for b in _SUPERSEDED) + "))" if _SUPERSEDED else "0"
 TYPE_ORDER = "CASE content_type WHEN 'IR' THEN 0 WHEN 'AMC' THEN 1 WHEN 'GM' THEN 2 WHEN 'CS' THEN 3 ELSE 4 END"
 REF_TOKEN = re.compile(
     r"\b(?:(?:AMC|GM|CS)\d*\s+)?(?:[A-Z]{2,}[A-Z0-9]*|\d{2,3}\.[A-Z]{1,2})(?:\.[A-Z0-9]+)+(?:\([a-z0-9]+\))*"
-    r"|\b(?:AMC|GM|CS)\d*\s+\d{2}[-.]\d+[A-Z]?\b(?:\([a-z0-9]+\))*"
+    r"|\b(?:AMC|GM|CS|JAR|ACJ)\d*\s?[-]?\s?\d{2}[-.]\d+[A-Z]?\b(?:\([a-z0-9]+\))*"
     # Czech CAA (ÚCL) documents: 'CAA-TI-010-n/99', 'CAA/S-SP-028-4/2020', 'ÚCL-237', 'PO/ST-20-6'
-    r"|(?<![\w/])(?:CAA[-/]|ÚCL-|UCL-|PO[-/](?:ST|TI|SL))[\w/.()-]*\d[\w/.()-]*", re.I)
+    r"|(?<![\w/])(?:CAA[-/]|ÚCL-|UCL-|PO[-/](?:ST|TI|SL))[\w/.()-]*\d[\w/.()-]*"
+    # Czech L series with an optional chapter: 'L 8/A', 'L 2 Hlava 3', 'L 8 Část IIIA Hlava 2', 'L 14 Doplněk A'
+    r"|(?<![\w/.-])L\s?(?:\d{1,2}(?:/[IVX]+|/A|\s?H)?|4444|7030|8168(?:/I+)?|8400|10066|10157)(?![\w/])"
+    r"(?:\s+(?:Část|Hlava|Doplněk|Dodatek|Příloha)\s+[\w]+)*", re.I)
 
 
 def db_path() -> Path:
@@ -293,12 +297,18 @@ NICHE_BOOK_HINTS: dict[str, str] = {
     "SC22": r"special conditions?|SC[- ][\w.]+|equivalent safety|ESF|DEV-[\w.]+|certification memorand\w*|"
             r"CM-[\w-]+|certification basis|electric propulsion|sustainer|powered sailplanes?",
 }
+NICHE_BOOK_HINTS["JAR22"] = r"JAR[- ]?22[\w.()]*|JAA|ACJ[- ]?22[\w.()]*|joint aviation requirements?"
 # Czech CAA (ÚCL) books: asked for by name, by document code, by the national airworthiness code L8/A, or in Czech
 _UCL_HINT = (r"ÚCL|UCL|CAA[-/][\w/.-]+|Czech|česk\w*|cesk\w*|národní\w*|narodni\w*|L\s?8/A|L\s?6/I+|"
              r"OLZ|ZOLZ|LR ČR|leteck\w* rejstřík\w*")
 NICHE_BOOK_HINTS["UCL_SM"] = _UCL_HINT + r"|směrnic\w*|smernic\w*"
 NICHE_BOOK_HINTS["UCL_PO"] = _UCL_HINT + r"|poradní\w*|poradni\w*|oběžník\w*|obeznik\w*|PO[-/](?:ST|TI|SL)[\w/.()-]*"
+# Czech L series: 'L 8', 'L 6/I', 'L 8/A', 'L 14H', 'L 4444', 'předpis L 2', 'letecké předpisy'
+_L_REF = r"L\s?(?:\d{1,2}(?:/[IVX]+|/A|\s?H)?|4444|7030|8168(?:/I+)?|8400|10066|10157)"
+NICHE_BOOK_HINTS["CZ_L"] = (_L_REF + r"|leteck\w* předpis\w*|letecke predpis\w*|předpis\w* L|predpis\w* L|"
+                            r"Czech|česk\w*|cesk\w*|národní\w*|narodni\w*|ÚCL|UCL|frazeologi\w*")
 UCL_BOOKS = {"UCL_SM", "UCL_PO"}
+CZECH_BOOKS = UCL_BOOKS | {"CZ_L"}
 # letters that only Czech uses: such a query is about the Czech documents (the EASA books are in English)
 CZECH_LETTERS = re.compile(r"[ěščřžůťďňĚŠČŘŽŮŤĎŇ]")
 NICHE_BOOKS = set(NICHE_BOOK_HINTS)
@@ -309,7 +319,7 @@ NICHE_HINTS = re.compile(r"(?<!\w)(?:" + "|".join(NICHE_BOOK_HINTS.values()) + r
 def drop_superseded(rows: list) -> list:
     """Of rows carrying the same reference, keep the superseding book's rows (CS22 over SAILPLANES)."""
     books = {r["book"] for r in rows}
-    gone = {old for new, old in SUPERSEDES.items() if new in books}
+    gone = {old for new, olds in SUPERSEDES.items() if new in books for old in olds}
     return [r for r in rows if r["book"] not in gone] or rows
 
 
@@ -317,7 +327,7 @@ def niche_books_for(query: str, book: str | None = None) -> set[str]:
     """The niche books a query is about (by its terms, or because it is restricted to that book)."""
     books = {b for b, rx in _NICHE_RES.items() if rx.search(query)}
     if CZECH_LETTERS.search(query):
-        books |= UCL_BOOKS
+        books |= CZECH_BOOKS
     if (book or "").upper() in NICHE_BOOKS:
         books.add(book.upper())
     return books
@@ -383,7 +393,7 @@ def search(con, query: str, book=None, content_type=None, limit: int = 8) -> lis
     authority_query = bool(AUTHORITY_HINTS.search(query))
     specific_query = bool(SPECIFIC_HINTS.search(query))
     niche_books = niche_books_for(query, book)
-    czech = bool(CZECH_LETTERS.search(query)) or (book or "").upper() in UCL_BOOKS
+    czech = bool(CZECH_LETTERS.search(query)) or (book or "").upper() in CZECH_BOOKS
     fq = _fts_query(query, "OR", czech=czech)
     if fq and len(results) < limit:
         rows = con.execute(

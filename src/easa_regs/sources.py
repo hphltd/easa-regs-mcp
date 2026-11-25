@@ -27,6 +27,7 @@ class PdfDoc:
     page: str            # EASA landing page of the document
     issue: str = ""      # e.g. 'Issue 2', 'ED Decision 2021/013/R'
     date: str = ""       # publication date as shown by EASA, ISO yyyy-mm-dd
+    file: str = ""       # locally supplied PDF (no download): file name in data/raw/<CODE>/
 
     @property
     def url(self) -> str:
@@ -41,6 +42,8 @@ class Book:
     landing_page: str
     kind: str = "xml"    # xml = EAR package (parse.py) | pdf = list of PDF documents (pdfbook.py)
     #                      ucl = PDFs linked from Czech CAA (ÚCL) listing pages (ucl.py)
+    #                      lis = Czech L-series regulations from aim.rlp.cz (lis.py)
+    #                      jar = JAR-22 from a locally supplied JAA PDF, never downloaded (jar.py)
     docs: tuple[PdfDoc, ...] = ()
     split: str = "doc"   # pdf books: 'doc' = one rule per document | 'cs' = one rule per CS/AMC paragraph
     listing: tuple[str, ...] = ()   # ucl books: pages whose PDF links are the documents
@@ -214,12 +217,34 @@ BOOKS: dict[str, Book] = {
             listing=(_UCL + "poradni-obezniky/",),
             content_type="PO",
         ),
+        # JAR-22 (JAA, superseded by CS-22 in 2003, still in the certification basis of older types). Not
+        # downloadable anywhere official: built only where data/raw/JAR22/jar22.pdf has been supplied (jar.py).
+        Book(
+            code="JAR22",
+            title="JAR-22 Sailplanes and Powered Sailplanes, Amendment 6 (JAA, 1 August 2001; superseded by CS-22)",
+            xml_download_id=0,
+            landing_page="",
+            kind="jar",
+            docs=(PdfDoc("JAR-22", "Sailplanes and Powered Sailplanes, Amendment 6", "JAR", 0, "",
+                         "JAR-22 Amendment 6", "2001-08-01", file="jar22.pdf"),),
+        ),
+        # Czech L series (Letecké předpisy řady L, mostly the ICAO Annexes in Czech), free public access via LIS
+        # of ŘLP ČR. The regulations and their chapter PDFs are read from the site's data.js files (lis.py).
+        Book(
+            code="CZ_L",
+            title="Letecké předpisy řady L - Czech aviation regulations (L 1-L 19, L 8/A, L 4444, L 8168, ...)",
+            xml_download_id=0,
+            landing_page="https://aim.rlp.cz/predpisy/predpisy/index.htm",
+            kind="lis",
+            content_type="L",
+        ),
     ]
 }
 
 # A newer amendment published as its own book supersedes the same references in an older book:
-# CS22 holds CS-22 Amendment 3, the SAILPLANES Easy Access Rules still carry CS-22 Amendment 2.
-SUPERSEDES = {"CS22": "SAILPLANES"}
+# CS22 holds CS-22 Amendment 3, the SAILPLANES Easy Access Rules still carry CS-22 Amendment 2, and JAR22 the
+# JAR-22 AMCs that CS-22 took over under the same numbers ('AMC 22.221(b)').
+SUPERSEDES: dict[str, tuple[str, ...]] = {"CS22": ("SAILPLANES", "JAR22")}
 
 # Forks that publish their own index releases set EASA_REGS_REPO=<owner>/<repo> on their host
 # (or EASA_REGS_INDEX_URL to point at any other copy of the prebuilt index).
@@ -237,4 +262,5 @@ DISCLAIMER = (
 ATTRIBUTION = ("Source: EASA Easy Access Rules (eRules XML), (c) European Union Aviation Safety Agency. "
                "Books UCL_SM and UCL_PO: directives and advisory circulars of the Úřad pro civilní letectví "
                "(Czech CAA), https://www.caa.gov.cz/dokumenty/predpisy/ - only the documents published by ÚCL "
-               "are authentic.")
+               "are authentic. Book CZ_L: Letecké předpisy řady L as published by the Letecká informační služba "
+               "of ŘLP ČR, https://aim.rlp.cz/predpisy/ - only the printed text is authentic.")

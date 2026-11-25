@@ -20,8 +20,10 @@ from .sources import BOOKS
 
 def _downloaded(raw: Path, code: str) -> bool:
     book = BOOKS[code]
-    if book.kind == "ucl":
+    if book.kind in ("ucl", "lis"):
         return (raw / code / "index.json").exists()
+    if book.kind == "jar":
+        return all((raw / code / d.file).exists() for d in book.docs)
     return (raw / code).is_dir() if book.kind == "pdf" else (raw / f"{code}.zip").exists()
 
 
@@ -46,6 +48,12 @@ def main(argv: list[str] | None = None) -> None:
             if BOOKS[code].kind == "ucl":
                 from .ucl import parse_ucl_book  # needs pdfminer.six (dev/build extra)
                 parsed = parse_ucl_book(args.raw / code, BOOKS[code])
+            elif BOOKS[code].kind == "jar":
+                from .jar import parse_jar_book  # needs pdfminer.six (dev/build extra)
+                parsed = parse_jar_book(args.raw / code, BOOKS[code])
+            elif BOOKS[code].kind == "lis":
+                from .lis import parse_lis_book  # needs pdfminer.six (dev/build extra)
+                parsed = parse_lis_book(args.raw / code, BOOKS[code])
             elif BOOKS[code].kind == "pdf":
                 from .pdfbook import parse_pdf_book  # needs pdfminer.six (dev/build extra)
                 parsed = parse_pdf_book(args.raw / code, BOOKS[code])

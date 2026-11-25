@@ -42,6 +42,14 @@ def fetch(code: str, raw_dir: Path = RAW_DIR) -> Path:
     if book.kind == "ucl":
         from .ucl import fetch_book
         return fetch_book(book, raw_dir, _download)
+    if book.kind == "lis":
+        from .lis import fetch_book as fetch_lis
+        return fetch_lis(book, raw_dir, _download)
+    if book.kind == "jar":                        # supplied locally, there is nothing to download
+        folder = raw_dir / code
+        have = all((folder / d.file).exists() for d in book.docs)
+        print(f"[{code}] {'using' if have else 'skipped, no'} local PDF in {folder} (not downloadable)", flush=True)
+        return folder
     if book.kind == "pdf":
         folder = raw_dir / code
         for doc in book.docs:

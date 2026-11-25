@@ -165,11 +165,11 @@ def test_ucl_get_rule_via_server(ucl_db, monkeypatch):
 
 
 @pytest.mark.parametrize("query,books", [
-    ("zkušební lety", {"UCL_SM", "UCL_PO"}),                  # Czech letters
+    ("zkušební lety", {"UCL_SM", "UCL_PO", "CZ_L"}),          # Czech letters: all Czech books
     ("CAA-TI-010-n/99", {"UCL_SM", "UCL_PO"}),
     ("PO/ST-20-6 klasifikace", {"UCL_PO"}),
-    ("L8/A annex", {"UCL_SM", "UCL_PO"}),
-    ("L8/A type certificate", {"UCL_SM", "UCL_PO", "INITAIR"}),
+    ("L8/A annex", {"UCL_SM", "UCL_PO", "CZ_L"}),
+    ("L8/A type certificate", {"UCL_SM", "UCL_PO", "CZ_L", "INITAIR"}),
     ("SEP class rating revalidation", set()),
 ])
 def test_ucl_niche_books(query, books):
