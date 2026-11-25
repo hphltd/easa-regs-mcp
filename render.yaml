@@ -1,4 +1,4 @@
-# One-click deploy: https://render.com/deploy?repo=https://github.com/muchsneaks/easa-regs-mcp
+# One-click deploy: https://render.com/deploy?repo=https://github.com/hphltd/easa-regs-mcp
 services:
   - type: web
     name: easa-regs-mcp
@@ -10,3 +10,5 @@ services:
     envVars:
       - key: HOST
         value: 0.0.0.0
+      - key: EASA_REGS_REPO
+        value: hphltd/easa-regs-mcp
