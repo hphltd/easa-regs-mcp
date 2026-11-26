@@ -11,8 +11,10 @@ connector picks up the weekly EASA update without a redeploy.
 Run locally:  uvicorn easa_regs.asgi:app --port 8000   -> http://localhost:8000/mcp
 
 Private instance (an index with books that must not be public, e.g. JAR-22):
-  EASA_REGS_ACCESS_KEY   every path must start with /<key>: the connector URL is https://<host>/<key>/mcp,
-                         anything else answers 404 (so the instance does not even reveal that it exists)
+  EASA_REGS_ACCESS_KEY   requests must carry the key, preferably in a header ('Authorization: Bearer <key>' or
+                         'X-API-Key: <key>', connector URL https://<host>/mcp), or as the first path segment
+                         (https://<host>/<key>/mcp, ends up in request logs); anything else answers 404, so the
+                         instance does not even reveal that it exists
   EASA_REGS_INDEX_TOKEN  GitHub token with read access to the private repo named by EASA_REGS_REPO; the index is
                          then fetched through the GitHub API (release assets of private repos have no public URL)
 """
@@ -211,6 +213,21 @@ def _stats_html(d: dict) -> str:
     return out
 
 
+def _header_key_ok(scope) -> bool:  # noqa: ANN001
+    """The access key sent as 'Authorization: Bearer <key>' or 'X-API-Key: <key>' (Claude connector 'Request
+    headers'): it then stays out of the URL, so it does not end up in request logs."""
+    want = ACCESS_KEY.encode()
+    for name, value in scope.get("headers") or []:
+        name = name.lower()
+        if name == b"authorization" and value[:7].lower() == b"bearer ":
+            value = value[7:]
+        elif name != b"x-api-key":
+            continue
+        if hmac.compare_digest(value.strip(), want):
+            return True
+    return False
+
+
 async def _not_found(scope, receive, send) -> None:  # noqa: ANN001
     await send({"type": "http.response.start", "status": 404,
                 "headers": [(b"content-type", b"text/plain; charset=utf-8")]})
@@ -229,12 +246,15 @@ async def app(scope, receive, send) -> None:  # noqa: ANN001
     if scope["type"] != "http":
         return
     path = scope["path"].rstrip("/") or "/"
-    if ACCESS_KEY:                                # private instance: only /<key>/... exists
-        first, _, rest = path.lstrip("/").partition("/")
-        if not hmac.compare_digest(first.encode(), ACCESS_KEY.encode()):
-            await _not_found(scope, receive, send)
-            return
-        path = "/" + rest if rest else "/"
+    if ACCESS_KEY:                                # private instance: key in a header or as the first path segment
+        if _header_key_ok(scope):
+            pass
+        else:
+            first, _, rest = path.lstrip("/").partition("/")
+            if not hmac.compare_digest(first.encode(), ACCESS_KEY.encode()):
+                await _not_found(scope, receive, send)
+                return
+            path = "/" + rest if rest else "/"
     if path == "/mcp":
         _ensure_index()
         scope = dict(scope, path="/mcp")

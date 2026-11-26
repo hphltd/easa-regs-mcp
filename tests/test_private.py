@@ -74,7 +74,7 @@ def test_download_private_index_rejects_wrong_token(fake_github, tmp_path: Path)
     assert not (tmp_path / "idx.sqlite").exists()
 
 
-def _get(path: str) -> tuple[int, bytes]:
+def _get(path: str, headers: list[tuple[bytes, bytes]] | None = None) -> tuple[int, bytes]:
     sent: list[dict] = []
 
     async def receive():
@@ -83,7 +83,7 @@ def _get(path: str) -> tuple[int, bytes]:
     async def send(message):
         sent.append(message)
 
-    scope = {"type": "http", "method": "GET", "path": path, "headers": [], "query_string": b""}
+    scope = {"type": "http", "method": "GET", "path": path, "headers": headers or [], "query_string": b""}
     asyncio.run(asgi.app(scope, receive, send))
     status = next(m["status"] for m in sent if m["type"] == "http.response.start")
     body = b"".join(m.get("body", b"") for m in sent if m["type"] == "http.response.body")
@@ -98,6 +98,25 @@ def test_access_key_hides_everything_else(monkeypatch):
     assert _get("/wrong/")[0] == 404
     status, body = _get("/k3y-abc/")
     assert status == 200 and b"MCP" in body
+
+
+@pytest.mark.parametrize("header", [
+    (b"authorization", b"Bearer k3y-abc"), (b"authorization", b"bearer k3y-abc"), (b"x-api-key", b"k3y-abc"),
+])
+def test_access_key_in_header(monkeypatch, header):
+    monkeypatch.setattr(asgi, "ACCESS_KEY", "k3y-abc")
+    status, body = _get("/", [header])
+    assert status == 200 and b"MCP" in body
+    assert _get("/k3y-abc/", [header])[0] == 404            # with the header the plain paths apply
+
+
+@pytest.mark.parametrize("header", [
+    (b"authorization", b"Bearer wrong"), (b"authorization", b"k3y-abc"), (b"x-api-key", b"k3y-ab"),
+    (b"cookie", b"k3y-abc"),
+])
+def test_wrong_or_misplaced_header_key(monkeypatch, header):
+    monkeypatch.setattr(asgi, "ACCESS_KEY", "k3y-abc")
+    assert _get("/", [header])[0] == 404
 
 
 def test_no_access_key_keeps_public_paths(monkeypatch):

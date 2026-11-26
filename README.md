@@ -87,8 +87,10 @@ CS-22 and the CS-22 Special Conditions) uses `EASA_REGS_REPO=hphltd/easa-regs-mc
 **Private instance** (an index with books that may not be published, e.g. JAR-22): a private repo builds the
 index (public index + `easa-regs-build JAR22`) and publishes it as a release of that private repo. A second host of
 this code then sets `EASA_REGS_REPO=<owner>/<private repo>`, `EASA_REGS_INDEX_TOKEN` (a token that can read that
-repo's contents) and `EASA_REGS_ACCESS_KEY` (a long random string). The connector URL becomes
-`https://<host>/<access key>/mcp`; every other path answers 404.
+repo's contents) and `EASA_REGS_ACCESS_KEY` (a long random string). Every request must carry the key, best as a
+header (in Claude: connector URL `https://<host>/mcp`, *Request headers* → `Authorization: Bearer <access key>` or
+`X-API-Key: <access key>`), or in the URL (`https://<host>/<access key>/mcp`, which ends up in request logs).
+Without it every path answers 404.
 
 ## Develop / build the index yourself
 
