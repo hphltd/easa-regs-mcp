@@ -9,13 +9,23 @@ GitHub release on first use and refreshed once it is older than INDEX_MAX_AGE (d
 connector picks up the weekly EASA update without a redeploy.
 
 Run locally:  uvicorn easa_regs.asgi:app --port 8000   -> http://localhost:8000/mcp
+
+Private instance (an index with books that must not be public, e.g. JAR-22):
+  EASA_REGS_ACCESS_KEY   every path must start with /<key>: the connector URL is https://<host>/<key>/mcp,
+                         anything else answers 404 (so the instance does not even reveal that it exists)
+  EASA_REGS_INDEX_TOKEN  GitHub token with read access to the private repo named by EASA_REGS_REPO; the index is
+                         then fetched through the GitHub API (release assets of private repos have no public URL)
 """
 
 from __future__ import annotations
 
+import hmac
+import json
 import os
 import sys
 import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 os.environ.setdefault("EASA_REGS_DB", "/tmp/easa_regs.sqlite")
@@ -34,6 +44,58 @@ _SECURITY = TransportSecuritySettings(
     enable_dns_rebinding_protection=bool(_ALLOWED), allowed_hosts=_ALLOWED, allowed_origins=[]
 )
 _last_check = 0.0
+ACCESS_KEY = os.environ.get("EASA_REGS_ACCESS_KEY", "").strip().strip("/")
+INDEX_TOKEN = os.environ.get("EASA_REGS_INDEX_TOKEN", "").strip()
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args, **kwargs):  # noqa: ANN002, ANN003
+        return None                               # handled by hand: the token must not follow the redirect
+
+
+def _asset_api_url(release: dict, name: str = "easa_regs.sqlite") -> str:
+    for asset in release.get("assets") or []:
+        if asset.get("name") == name:
+            return asset["url"]
+    raise RuntimeError(f"latest release has no asset {name!r}")
+
+
+def download_private_index(target: Path, repo: str | None = None, token: str | None = None,
+                           api: str = "https://api.github.com") -> Path:
+    """Download easa_regs.sqlite from the latest release of a private GitHub repo.
+
+    GitHub answers the asset request with a redirect to a pre-signed storage URL. urllib would resend the
+    Authorization header there (storage rejects two auth methods, and the token would leave GitHub), so the
+    redirect is followed by hand without it."""
+    from .sources import GITHUB_REPO
+
+    repo, token = repo or GITHUB_REPO, token or INDEX_TOKEN
+    auth = {"Authorization": f"Bearer {token}", "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "easa-regs-mcp"}
+    req = urllib.request.Request(f"{api}/repos/{repo}/releases/latest",
+                                 headers={**auth, "Accept": "application/vnd.github+json"})
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        asset = _asset_api_url(json.loads(resp.read()))
+    opener = urllib.request.build_opener(_NoRedirect)
+    req = urllib.request.Request(asset, headers={**auth, "Accept": "application/octet-stream"})
+    try:
+        resp = opener.open(req, timeout=300)
+    except urllib.error.HTTPError as exc:
+        if exc.code not in (301, 302, 303, 307, 308):
+            raise
+        resp = urllib.request.urlopen(urllib.request.Request(exc.headers["Location"],
+                                                             headers={"User-Agent": "easa-regs-mcp"}), timeout=300)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    tmp = target.with_suffix(".part")
+    with resp, open(tmp, "wb") as fh:
+        while chunk := resp.read(1 << 20):
+            fh.write(chunk)
+    with open(tmp, "rb") as fh:
+        if fh.read(16) != b"SQLite format 3\x00":
+            tmp.unlink()
+            raise RuntimeError(f"private release of {repo} did not return an SQLite file")
+    tmp.replace(target)
+    print(f"Private index saved to {target}", file=sys.stderr, flush=True)
+    return target
 
 
 def _ensure_index() -> None:
@@ -47,7 +109,7 @@ def _ensure_index() -> None:
     if path.exists() and now - path.stat().st_mtime < INDEX_MAX_AGE:
         return
     try:
-        download_index(path)
+        download_private_index(path) if INDEX_TOKEN else download_index(path)
         _con.cache_clear()  # reopen on the new file
     except Exception as exc:  # keep serving the old copy if GitHub is unreachable
         if not path.exists():
@@ -167,6 +229,12 @@ async def app(scope, receive, send) -> None:  # noqa: ANN001
     if scope["type"] != "http":
         return
     path = scope["path"].rstrip("/") or "/"
+    if ACCESS_KEY:                                # private instance: only /<key>/... exists
+        first, _, rest = path.lstrip("/").partition("/")
+        if not hmac.compare_digest(first.encode(), ACCESS_KEY.encode()):
+            await _not_found(scope, receive, send)
+            return
+        path = "/" + rest if rest else "/"
     if path == "/mcp":
         _ensure_index()
         scope = dict(scope, path="/mcp")

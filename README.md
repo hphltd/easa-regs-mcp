@@ -84,6 +84,12 @@ A fork that publishes its own index releases sets `EASA_REGS_REPO=<owner>/<repo>
 CS-22 and the CS-22 Special Conditions) uses `EASA_REGS_REPO=hphltd/easa-regs-mcp`: `render.yaml` and the
 `Dockerfile` already set it; on Vercel enter it when the button asks (or under *Settings → Environment Variables*).
 
+**Private instance** (an index with books that may not be published, e.g. JAR-22): a private repo builds the
+index (public index + `easa-regs-build JAR22`) and publishes it as a release of that private repo. A second host of
+this code then sets `EASA_REGS_REPO=<owner>/<private repo>`, `EASA_REGS_INDEX_TOKEN` (a token that can read that
+repo's contents) and `EASA_REGS_ACCESS_KEY` (a long random string). The connector URL becomes
+`https://<host>/<access key>/mcp`; every other path answers 404.
+
 ## Develop / build the index yourself
 
 ```bash
